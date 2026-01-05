@@ -12,13 +12,16 @@ const createRestaurant = async (req, res) => {
       return res.status(400).json({ error: errors.array()[0].msg });
     }
 
-    const { name, email, phone, restaurantPhone, pinCode, city, state, address, subscriptionPlan } = req.body;
+    const { name, email, phone, restaurantPhone, pinCode, city, state, address, password, subscriptionPlan } = req.body;
     
     // Check if restaurant already exists
     const existingRestaurant = await Restaurant.findOne({ email });
     if (existingRestaurant) {
       return res.status(400).json({ error: 'Restaurant with this email already exists' });
     }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password || 'defaultPassword123', 10);
 
     // Set plan limits based on subscription
     let planLimits = { maxItems: 50, maxOrders: 100, maxUsers: 2 };
@@ -38,6 +41,7 @@ const createRestaurant = async (req, res) => {
       city,
       state,
       address,
+      password: hashedPassword,
       subscriptionPlan: subscriptionPlan || 'trial',
       planLimits
     });
