@@ -32,7 +32,14 @@ const { initializeDefaultSettings } = require('./controllers/settingsController'
 initializeDefaultSettings();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5000",
+    "https://shineposbackned.vercel.app",
+  
+  ]
+}));
 app.use(express.json());
 app.use(trackApiMetrics); // Track API metrics for monitoring
 
@@ -62,6 +69,11 @@ app.use('/api/orders', (req, res, next) => {
   next();
 }, orderRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Restaurant SaaS API is running' });
@@ -75,7 +87,12 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  console.log('404 - Route not found:', req.method, req.originalUrl);
+  res.status(404).json({ 
+    error: 'Route not found',
+    method: req.method,
+    url: req.originalUrl
+  });
 });
 
 const PORT = process.env.PORT || 5000;
