@@ -7,118 +7,67 @@ const { generateToken } = require('../utils/jwt');
 
 const createRestaurant = async (req, res) => {
   try {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array()[0].msg });
     }
 
-    console.log('Request body:', req.body);
-    const { name, adminEmail, adminPassword, adminName, phone, address, city, state, zipCode, cuisine, description } = req.body;
-    
-    console.log('Extracted data:', { name, adminEmail, adminName });
-    
-    // Generate slug from name
-    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    console.log('Generated slug:', slug);
+    const { name, email, phone, restaurantPhone, pinCode, city, state, address, password, subscriptionPlan } = req.body;
     
     // Check if restaurant already exists
-    const existingRestaurant = await Restaurant.findOne({ slug });
+    const existingRestaurant = await Restaurant.findOne({ email });
     if (existingRestaurant) {
-      return res.status(400).json({ error: 'Restaurant with this name already exists' });
+      return res.status(400).json({ error: 'Restaurant with this email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password || 'defaultPassword123', 10);
+
+    // Set plan limits based on subscription
+    let planLimits = { maxItems: 50, maxOrders: 100, maxUsers: 2 };
+    if (subscriptionPlan === 'basic') {
+      planLimits = { maxItems: 200, maxOrders: 500, maxUsers: 5 };
+    } else if (subscriptionPlan === 'premium') {
+      planLimits = { maxItems: 1000, maxOrders: 2000, maxUsers: 20 };
     }
 
     // Create restaurant
     const restaurant = new Restaurant({ 
       name, 
-      slug, 
-      adminEmail, 
-      adminName,
+      email, 
       phone,
-      address,
+      restaurantPhone,
+      pinCode,
       city,
       state,
-      zipCode,
-      cuisine,
-      description
+      address,
+      password: hashedPassword,
+      subscriptionPlan: subscriptionPlan || 'trial',
+      planLimits
     });
     await restaurant.save();
-    console.log('Restaurant saved successfully');
-
-    // Check if admin email already exists across all restaurants
-    const restaurants = await Restaurant.find();
-    let emailExists = false;
-    
-    for (const existingRestaurant of restaurants) {
-      try {
-        const ExistingUserModel = TenantModelFactory.getUserModel(existingRestaurant.slug);
-        const existingUser = await ExistingUserModel.findOne({ email: adminEmail });
-        if (existingUser) {
-          emailExists = true;
-          console.log(`Email ${adminEmail} found in restaurant: ${existingRestaurant.slug}`);
-          break;
-        }
-      } catch (err) {
-        // Skip if restaurant database doesn't exist yet
-        console.log(`Skipping restaurant ${existingRestaurant.slug} - database not accessible:`, err.message);
-        continue;
-      }
-    }
-    
-    if (emailExists) {
-      return res.status(400).json({ error: 'Admin email already exists in another restaurant' });
-    }
-
-    // Create restaurant admin user
-    console.log('Creating admin user...');
-    const UserModel = TenantModelFactory.getUserModel(slug);
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-    
-    const adminUser = new UserModel({
-      email: adminEmail,
-      password: hashedPassword,
-      name: adminName,
-      role: 'RESTAURANT_ADMIN'
-    });
-    await adminUser.save();
-
-    // Create subscription with trial
-    const subscription = new Subscription({
-      restaurantId: restaurant._id,
-      plan: 'trial',
-      billing: 'monthly',
-      price: 0,
-      status: 'trial',
-      limits: {
-        orders: 5,
-        storage: 500,
-        users: 2
-      }
-    });
-    await subscription.save();
 
     res.status(201).json({
-      message: 'Restaurant created successfully',
+      message: 'Restaurant registered successfully',
       restaurant: {
         id: restaurant._id,
         name: restaurant.name,
-        slug: restaurant.slug,
-        adminEmail: restaurant.adminEmail,
-        adminName: restaurant.adminName,
+        email: restaurant.email,
         phone: restaurant.phone,
-        address: restaurant.address,
+        restaurantPhone: restaurant.restaurantPhone,
+        pinCode: restaurant.pinCode,
         city: restaurant.city,
         state: restaurant.state,
-        zipCode: restaurant.zipCode,
-        cuisine: restaurant.cuisine,
-        description: restaurant.description,
+        address: restaurant.address,
+        subscriptionPlan: restaurant.subscriptionPlan,
+        planLimits: restaurant.planLimits,
+        trialInfo: restaurant.trialInfo,
         isActive: restaurant.isActive
       }
     });
   } catch (error) {
     console.error('Create restaurant error:', error);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({ error: 'Failed to create restaurant', details: error.message });
+    res.status(500).json({ error: 'Failed to register restaurant' });
   }
 };
 

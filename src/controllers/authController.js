@@ -81,17 +81,28 @@ const login = async (req, res) => {
         restaurantSlug: restaurantSlug
       };
     } else {
-      // Super admin login
+      // Try Super admin login first
       user = await SuperAdmin.findOne({ email, isActive: true });
       
-      if (!user || !await bcrypt.compare(password, user.password)) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
+      if (user && await bcrypt.compare(password, user.password)) {
+        tokenPayload = {
+          userId: user._id,
+          role: user.role
+        };
+      } else {
+        // Try Restaurant login
+        user = await Restaurant.findOne({ email, isActive: true });
+        
+        if (!user || !await bcrypt.compare(password, user.password)) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
-      tokenPayload = {
-        userId: user._id,
-        role: user.role
-      };
+        tokenPayload = {
+          userId: user._id,
+          role: 'RESTAURANT_ADMIN',
+          restaurantSlug: user.slug
+        };
+      }
     }
 
     const token = generateToken(tokenPayload);
@@ -102,8 +113,8 @@ const login = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        role: user.role,
-        restaurantSlug: restaurantSlug || null
+        role: tokenPayload.role,
+        restaurantSlug: tokenPayload.restaurantSlug || null
       }
     });
   } catch (error) {

@@ -5,14 +5,18 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Create restaurant (Super Admin only)
+// Create restaurant
 router.post('/', 
-  auth(['SUPER_ADMIN']),
   [
-    body('name').trim().isLength({ min: 2 }).withMessage('Restaurant name must be at least 2 characters'),
-    body('adminEmail').isEmail().withMessage('Valid admin email is required'),
-    body('adminPassword').isLength({ min: 6 }).withMessage('Admin password must be at least 6 characters'),
-    body('adminName').trim().isLength({ min: 2 }).withMessage('Admin name must be at least 2 characters')
+    body('name').trim().isLength({ min: 2 }).withMessage('Restaurant name is required'),
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('phone').trim().isLength({ min: 10 }).withMessage('Phone number is required'),
+    body('restaurantPhone').trim().isLength({ min: 10 }).withMessage('Restaurant phone number is required'),
+    body('pinCode').trim().isLength({ min: 5 }).withMessage('Pin code is required'),
+    body('city').trim().notEmpty().withMessage('City is required'),
+    body('state').trim().notEmpty().withMessage('State is required'),
+    body('address').trim().notEmpty().withMessage('Address is required')
   ],
   createRestaurant
 );
