@@ -57,6 +57,7 @@ app.use('/api/subscription', subscriptionStatusRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/user-management', userManagementRoutes);
+app.use('/api/categories', categoryRoutes);
 // app.use('/api/payment', paymentRoutes);
 app.use('/api/:restaurantSlug/orders', (req, res, next) => {
   console.log('Hit parameterized route with slug:', req.params.restaurantSlug);
