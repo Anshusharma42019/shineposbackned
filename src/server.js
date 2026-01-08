@@ -20,6 +20,7 @@ const settingsRoutes = require('./routes/settings');
 const communicationRoutes = require('./routes/communication');
 const userManagementRoutes = require('./routes/userManagement');
 const paymentRoutes = require('./routes/payment');
+const categoryRoutes = require('./routes/category');
 const { trackApiMetrics } = require('./controllers/systemController');
 
 const app = express();

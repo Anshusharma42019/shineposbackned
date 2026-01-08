@@ -257,6 +257,20 @@ class TenantModelFactory {
     return this.models.get(modelKey);
   }
 
+  getCategoryModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_categories`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      const categorySchema = new mongoose.Schema({
+        name: { type: String, required: true, trim: true },
+        description: { type: String, trim: true },
+        isActive: { type: Boolean, default: true }
+      }, { timestamps: true });
+      this.models.set(modelKey, connection.model('categories', categorySchema));
+    }
+    return this.models.get(modelKey);
+  }
+
   getStaffModel(restaurantSlug) {
     const modelKey = `${restaurantSlug}_staff`;
     if (!this.models.has(modelKey)) {

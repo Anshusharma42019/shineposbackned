@@ -13,7 +13,8 @@ const tenantMiddleware = (req, res, next) => {
       Menu: TenantModelFactory.getMenuModel(restaurantSlug),
       Order: TenantModelFactory.getOrderModel(restaurantSlug),
       Inventory: TenantModelFactory.getInventoryModel(restaurantSlug),
-      Staff: TenantModelFactory.getStaffModel(restaurantSlug)
+      Staff: TenantModelFactory.getStaffModel(restaurantSlug),
+      Category: TenantModelFactory.getCategoryModel(restaurantSlug)
     };
 
     next();

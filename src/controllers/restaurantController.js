@@ -46,6 +46,9 @@ const createRestaurant = async (req, res) => {
     
     await restaurant.save();
 
+    // Initialize tenant database and collections
+    await TenantModelFactory.createTenantDatabase(restaurant.slug);
+
     res.status(201).json({
       message: `Restaurant registered successfully with ${hasPaid ? '30-day subscription' : '14-day trial'}`,
       restaurant: {
@@ -61,7 +64,8 @@ const createRestaurant = async (req, res) => {
     });
   } catch (error) {
     console.error('Create restaurant error:', error);
-    res.status(500).json({ error: 'Failed to register restaurant' });
+    console.error('Error details:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to register restaurant' });
   }
 };
 
