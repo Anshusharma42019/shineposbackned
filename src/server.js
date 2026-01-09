@@ -49,7 +49,7 @@ app.use(trackApiMetrics); // Track API metrics for monitoring
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
-// app.use('/api/menus', menuRoutes);
+app.use('/api/menus', menuRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/kitchen', kitchenRoutes);
