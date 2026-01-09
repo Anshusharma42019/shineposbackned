@@ -153,6 +153,33 @@ const createInventorySchema = () => new mongoose.Schema({
   timestamps: true
 });
 
+// Addon Schema for tenant-specific collections
+const createAddonSchema = () => new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  description: {
+    type: String
+  },
+  category: {
+    type: String,
+    default: 'general'
+  },
+  veg: {
+    type: Boolean,
+    default: true
+  },
+  available: {
+    type: Boolean,
+    default: true
+  }
+});
+
 // Staff Schema for tenant-specific collections
 const createStaffSchema = () => new mongoose.Schema({
   email: {
@@ -282,7 +309,9 @@ class TenantModelFactory {
         imageUrl: { type: String, trim: true },
         videoUrl: { type: String, trim: true },
         timeToPrepare: { type: Number, required: true, min: 1 },
-        foodType: { type: String, enum: ['veg', 'nonveg'], required: true }
+        foodType: { type: String, enum: ['veg', 'nonveg'], required: true },
+        price: { type: Number, required: true, min: 0 },
+        addon: [{ type: mongoose.Schema.Types.ObjectId, ref: 'addons' }]
       }, { timestamps: true });
       this.models.set(modelKey, connection.model('menuitems', menuItemSchema));
     }
@@ -298,6 +327,15 @@ class TenantModelFactory {
     return this.models.get(modelKey);
   }
 
+  getAddonModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_addons`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('addons', createAddonSchema()));
+    }
+    return this.models.get(modelKey);
+  }
+
   async createTenantDatabase(restaurantSlug) {
     // Initialize models to create database and collections
     this.getUserModel(restaurantSlug);
@@ -307,6 +345,7 @@ class TenantModelFactory {
     this.getStaffModel(restaurantSlug);
     this.getCategoryModel(restaurantSlug);
     this.getMenuItemModel(restaurantSlug);
+    this.getAddonModel(restaurantSlug);
   }
 }
 

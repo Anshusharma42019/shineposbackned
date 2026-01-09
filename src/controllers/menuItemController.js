@@ -7,7 +7,7 @@ const createMenuItem = async (req, res) => {
             return res.status(500).json({ error: 'Tenant models not initialized' });
         }
         
-        const { itemName, categoryID, status, imageUrl, videoUrl, timeToPrepare, foodType } = req.body;
+        const { itemName, categoryID, status, imageUrl, videoUrl, timeToPrepare, foodType, price, addon } = req.body;
         const MenuItem = req.tenantModels.MenuItem;
         
         const menuItem = new MenuItem({
@@ -17,7 +17,9 @@ const createMenuItem = async (req, res) => {
             imageUrl,
             videoUrl,
             timeToPrepare,
-            foodType
+            foodType,
+            price,
+            addon
         });
         
         await menuItem.save();
@@ -31,7 +33,7 @@ const createMenuItem = async (req, res) => {
 const getMenuItems = async (req, res) => {
     try {
         const MenuItem = req.tenantModels.MenuItem;
-        const menuItems = await MenuItem.find().populate('categoryID').sort({ createdAt: -1 });
+        const menuItems = await MenuItem.find().populate('categoryID').populate('addon').sort({ createdAt: -1 });
         res.json({ menuItems });
     } catch (error) {
         console.error('Get menu items error:', error);
@@ -44,7 +46,7 @@ const getMenuItemById = async (req, res) => {
         const { id } = req.params;
         const MenuItem = req.tenantModels.MenuItem;
         
-        const menuItem = await MenuItem.findById(id).populate('categoryID');
+        const menuItem = await MenuItem.findById(id).populate('categoryID').populate('addon');
         if (!menuItem) {
             return res.status(404).json({ error: 'Menu item not found' });
         }
@@ -61,7 +63,7 @@ const updateMenuItem = async (req, res) => {
         const { id } = req.params;
         const MenuItem = req.tenantModels.MenuItem;
         
-        const menuItem = await MenuItem.findByIdAndUpdate(id, req.body, { new: true }).populate('categoryID');
+        const menuItem = await MenuItem.findByIdAndUpdate(id, req.body, { new: true }).populate('categoryID').populate('addon');
         if (!menuItem) {
             return res.status(404).json({ error: 'Menu item not found' });
         }

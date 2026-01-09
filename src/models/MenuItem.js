@@ -33,7 +33,13 @@ const MenuItemSchema = new mongoose.Schema({
         type: String,
         enum: ['veg', 'nonveg'],
         required: true
-    }
+    },
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    addon: [{ type: mongoose.Schema.Types.ObjectId, ref:'addon'}]
 }, {
     timestamps: true
 });
