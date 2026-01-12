@@ -37,8 +37,8 @@ const createOrder = async (req, res) => {
     }
 
     const MenuModel =
-      req.tenantModels?.Menu ||
-      TenantModelFactory.getMenuModel(restaurantSlug);
+      req.tenantModels?.MenuItem ||
+      TenantModelFactory.getMenuItemModel(restaurantSlug);
 
     let totalAmount = 0;
     const orderItems = [];
@@ -60,16 +60,18 @@ const createOrder = async (req, res) => {
       /* ===============================
          PRICE CALCULATION (SAFE)
       ================================ */
-      const basePrice = menuItem.price;
+      const basePrice = 0; // Menu items don't have base price, only variations do
+
+      // Get variation and addon details from TenantModelFactory
+      const VariationModel = TenantModelFactory.getVariationModel(restaurantSlug);
+      const AddonModel = TenantModelFactory.getAddonModel(restaurantSlug);
 
       // Validate variation
       let finalVariation = null;
       let variationPrice = 0;
 
-      if (variation && menuItem.variations?.length) {
-        const validVariation = menuItem.variations.find(
-          (v) => v._id.toString() === variation.variationId?.toString()
-        );
+      if (variation && variation.variationId) {
+        const validVariation = await VariationModel.findById(variation.variationId);
 
         if (validVariation) {
           variationPrice = validVariation.price;
@@ -85,19 +87,19 @@ const createOrder = async (req, res) => {
       let addonsTotal = 0;
       const finalAddons = [];
 
-      if (addons && addons.length && menuItem.addons?.length) {
+      if (addons && addons.length) {
         for (const addon of addons) {
-          const validAddon = menuItem.addons.find(
-            (a) => a._id.toString() === addon.addonId?.toString()
-          );
+          if (addon.addonId) {
+            const validAddon = await AddonModel.findById(addon.addonId);
 
-          if (validAddon) {
-            addonsTotal += validAddon.price;
-            finalAddons.push({
-              addonId: validAddon._id,
-              name: validAddon.name,
-              price: validAddon.price,
-            });
+            if (validAddon) {
+              addonsTotal += validAddon.price;
+              finalAddons.push({
+                addonId: validAddon._id,
+                name: validAddon.name,
+                price: validAddon.price,
+              });
+            }
           }
         }
       }
@@ -109,7 +111,7 @@ const createOrder = async (req, res) => {
 
       orderItems.push({
         menuId: menuItem._id,
-        name: menuItem.name,
+        name: menuItem.itemName,
         basePrice,
         quantity,
         variation: finalVariation,

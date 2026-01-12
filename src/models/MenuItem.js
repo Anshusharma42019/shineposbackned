@@ -11,6 +11,11 @@ const MenuItemSchema = new mongoose.Schema({
         ref: 'Category',
         required: true
     },
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },
     status: {
         type: String,
         enum: ['active', 'inactive', 'out-of-stock'],
@@ -37,7 +42,13 @@ const MenuItemSchema = new mongoose.Schema({
     addon: [{ type: mongoose.Schema.Types.ObjectId, ref:'addon'}],
     variation: [{ type: mongoose.Schema.Types.ObjectId, ref:'variations'}],
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+MenuItemSchema.virtual('isAvailable').get(function() {
+    return this.status === 'active';
 });
 
 module.exports = mongoose.model('MenuItem', MenuItemSchema);

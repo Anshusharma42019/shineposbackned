@@ -7,12 +7,13 @@ const createMenuItem = async (req, res) => {
             return res.status(500).json({ error: 'Tenant models not initialized' });
         }
         
-        const { itemName, categoryID, status, imageUrl, videoUrl, timeToPrepare, foodType, addon, variation } = req.body;
+        const { itemName, categoryID, price, status, imageUrl, videoUrl, timeToPrepare, foodType, addon, variation } = req.body;
         const MenuItem = req.tenantModels.MenuItem;
         
         const menuItem = new MenuItem({
             itemName,
             categoryID,
+            price,
             status,
             imageUrl,
             videoUrl,

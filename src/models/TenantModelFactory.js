@@ -79,8 +79,19 @@ const createOrderSchema = () => new mongoose.Schema({
       required: true
     },
     name: String,
-    price: Number,
-    quantity: Number
+    basePrice: Number,
+    quantity: Number,
+    variation: {
+      variationId: mongoose.Schema.Types.ObjectId,
+      name: String,
+      price: Number
+    },
+    addons: [{
+      addonId: mongoose.Schema.Types.ObjectId,
+      name: String,
+      price: Number
+    }],
+    itemTotal: Number
   }],
   totalAmount: {
     type: Number,
@@ -343,7 +354,16 @@ class TenantModelFactory {
         foodType: { type: String, enum: ['veg', 'nonveg'], required: true },
         variation: [{ type: mongoose.Schema.Types.ObjectId, ref: 'variations' }],
         addon: [{ type: mongoose.Schema.Types.ObjectId, ref: 'addons' }]
-      }, { timestamps: true });
+      }, { 
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+      });
+      
+      menuItemSchema.virtual('isAvailable').get(function() {
+        return this.status === 'active';
+      });
+      
       this.models.set(modelKey, connection.model('menuitems', menuItemSchema));
     }
     return this.models.get(modelKey);
