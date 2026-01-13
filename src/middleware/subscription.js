@@ -1,5 +1,4 @@
 const Restaurant = require('../models/Restaurant');
-
 const checkSubscriptionExpiry = (restaurant) => {
   if (!restaurant.subscriptionEndDate) return false;
   return new Date() > new Date(restaurant.subscriptionEndDate);

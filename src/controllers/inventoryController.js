@@ -6,7 +6,6 @@ const createInventoryItem = async (req, res) => {
     const restaurantSlug = req.user.restaurantSlug;
     
     const InventoryModel = TenantModelFactory.getInventoryModel(restaurantSlug);
-    
     const inventoryItem = new InventoryModel({
       name,
       category,

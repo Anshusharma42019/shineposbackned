@@ -257,6 +257,67 @@ const createStaffSchema = () => new mongoose.Schema({
   timestamps: true
 });
 
+// KOT Schema for tenant-specific collections
+const createKOTSchema = () => new mongoose.Schema({
+  kotNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  orderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
+  },
+  orderNumber: {
+    type: String,
+    required: true
+  },
+  items: [{
+    menuId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true
+    },
+    name: {
+      type: String,
+      required: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    variation: {
+      name: String,
+      price: Number
+    },
+    addons: [{
+      name: String,
+      price: Number
+    }],
+    specialInstructions: String
+  }],
+  status: {
+    type: String,
+    enum: ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+    default: 'PENDING'
+  },
+  priority: {
+    type: String,
+    enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'],
+    default: 'NORMAL'
+  },
+  tableNumber: String,
+  customerName: String,
+  printedAt: Date,
+  startedAt: Date,
+  completedAt: Date,
+  estimatedTime: Number,
+  actualTime: Number,
+  notes: String
+}, {
+  timestamps: true
+});
+
 class TenantModelFactory {
   constructor() {
     this.connections = new Map();
@@ -396,6 +457,26 @@ class TenantModelFactory {
     return this.models.get(modelKey);
   }
 
+  getKOTModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_kots`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      const kotSchema = createKOTSchema();
+      
+      // Generate KOT number
+      kotSchema.pre('save', async function(next) {
+        if (!this.kotNumber) {
+          const count = await this.constructor.countDocuments();
+          this.kotNumber = `KOT${String(count + 1).padStart(6, '0')}`;
+        }
+        next();
+      });
+      
+      this.models.set(modelKey, connection.model('kots', kotSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
   async createTenantDatabase(restaurantSlug) {
     // Initialize models to create database and collections
     this.getUserModel(restaurantSlug);
@@ -407,6 +488,7 @@ class TenantModelFactory {
     this.getMenuItemModel(restaurantSlug);
     this.getAddonModel(restaurantSlug);
     this.getVariationModel(restaurantSlug);
+    this.getKOTModel(restaurantSlug);
   }
 }
 

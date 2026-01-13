@@ -2,7 +2,8 @@ const express = require('express');
 const { 
   getKitchenOrders, 
   updateOrderStatus, 
-  setPriority 
+  setPriority,
+  printOrderKOT
 } = require('../controllers/kitchenController');
 const auth = require('../middleware/auth');
 const tenantMiddleware = require('../middleware/tenant');
@@ -17,5 +18,8 @@ router.patch('/update/orders/status/:id', auth(['KITCHEN_STAFF', 'MANAGER', 'RES
 
 // Set order priority
 router.patch('/update/orders/priority/:id', auth(['MANAGER', 'RESTAURANT_ADMIN']), tenantMiddleware, setPriority);
+
+// Print KOT for order
+router.post('/orders/:id/print-kot', auth(['KITCHEN_STAFF', 'MANAGER', 'RESTAURANT_ADMIN']), tenantMiddleware, printOrderKOT);
 
 module.exports = router;

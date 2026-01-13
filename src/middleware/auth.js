@@ -1,6 +1,5 @@
 const { verifyToken } = require('../utils/jwt');
 const TenantModelFactory = require('../models/TenantModelFactory');
-
 const auth = (requiredRoles = []) => {
   return async (req, res, next) => {
     try {

@@ -23,6 +23,7 @@ const paymentRoutes = require('./routes/payment');
 const categoryRoutes = require('./routes/category');
 const addonRoutes = require('./routes/addon');
 const variationRoutes = require('./routes/variation');
+const kotRoutes = require('./routes/kot');
 const systemController = require('./controllers/systemController');
 const { trackApiMetrics } = systemController;
 
@@ -64,6 +65,7 @@ app.use('/api/user-management', userManagementRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/addon', addonRoutes);
 app.use('/api/variation', variationRoutes);
+app.use('/api/kot', kotRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/:restaurantSlug/orders', orderRoutes);
 
