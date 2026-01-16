@@ -80,7 +80,6 @@ const getKOTById = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch KOT' });
   }
 };
-
 // Update KOT status
 const updateKOTStatus = async (req, res) => {
   try {
