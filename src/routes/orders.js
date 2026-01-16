@@ -8,6 +8,7 @@ const {
   processPayment,
 } = require("../controllers/orderController");
 const auth = require("../middleware/auth");
+const TenantModelFactory = require("../models/TenantModelFactory");
 
 const router = express.Router();
 
@@ -80,6 +81,54 @@ router.patch(
       .withMessage("Invalid order status"),
   ],
   updateOrderStatus
+);
+
+/* =====================================================
+   UPDATE ORDER PRIORITY
+===================================================== */
+router.patch(
+  "/update/priority/:id",
+  [
+    param("id")
+      .isMongoId()
+      .withMessage("Invalid order ID"),
+
+    body("priority")
+      .isIn(["LOW", "NORMAL", "HIGH", "URGENT"])
+      .withMessage("Invalid priority"),
+  ],
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { priority } = req.body;
+      const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+      const KOTModel = TenantModelFactory.getKOTModel(req.user.restaurantSlug);
+      
+      const order = await OrderModel.findByIdAndUpdate(
+        id,
+        { priority },
+        { new: true }
+      );
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Sync priority with associated KOTs
+      await KOTModel.updateMany(
+        { orderId: id },
+        { priority }
+      );
+      
+      res.json({
+        message: "Order priority updated successfully",
+        order
+      });
+    } catch (error) {
+      console.error("Update order priority error:", error);
+      res.status(500).json({ error: "Failed to update order priority" });
+    }
+  }
 );
 
 /* =====================================================

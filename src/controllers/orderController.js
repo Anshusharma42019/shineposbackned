@@ -252,6 +252,17 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
+    // Update associated KOT status
+    try {
+      const KOTModel = TenantModelFactory.getKOTModel(req.user.restaurantSlug);
+      await KOTModel.updateMany(
+        { orderId: id },
+        { status }
+      );
+    } catch (kotError) {
+      console.error('KOT status sync error:', kotError);
+    }
+
     res.json({
       message: "Order status updated successfully",
       order,

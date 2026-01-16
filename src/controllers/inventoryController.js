@@ -102,10 +102,29 @@ const getLowStockItems = async (req, res) => {
   }
 };
 
+const deleteInventoryItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const restaurantSlug = req.user.restaurantSlug;
+    const InventoryModel = TenantModelFactory.getInventoryModel(restaurantSlug);
+    
+    const inventoryItem = await InventoryModel.findByIdAndUpdate(id, { isActive: false }, { new: true });
+    if (!inventoryItem) {
+      return res.status(404).json({ error: 'Inventory item not found' });
+    }
+
+    res.json({ message: 'Inventory item deleted successfully' });
+  } catch (error) {
+    console.error('Delete inventory error:', error);
+    res.status(500).json({ error: 'Failed to delete inventory item' });
+  }
+};
+
 module.exports = {
   createInventoryItem,
   getInventory,
   updateInventoryItem,
   restockItem,
-  getLowStockItems
+  getLowStockItems,
+  deleteInventoryItem
 };

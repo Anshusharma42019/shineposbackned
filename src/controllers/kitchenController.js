@@ -14,11 +14,11 @@ const getKitchenOrders = async (req, res) => {
       status: { $in: ['PENDING', 'PREPARING'] }
     }).sort({ createdAt: 1 });
     
-    const kots = await KOTModel.find({
-      status: { $in: ['PENDING', 'IN_PROGRESS'] }
-    }).sort({ priority: -1, createdAt: 1 });
+    const kots = await KOTModel.find()
+      .sort({ priority: -1, createdAt: -1 });
     
     console.log('Found orders:', orders.length, 'Found KOTs:', kots.length);
+    console.log('KOT statuses:', kots.map(k => ({ id: k._id, status: k.status })));
     
     res.json({ orders, kots });
   } catch (error) {
@@ -162,19 +162,25 @@ const updateKOTStatus = async (req, res) => {
     const { status } = req.body;
     const restaurantSlug = req.user.restaurantSlug;
     const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
     
     const kot = await KOTModel.findByIdAndUpdate(
       id,
       { 
         status,
-        ...(status === 'IN_PROGRESS' && { startedAt: new Date() }),
-        ...(status === 'COMPLETED' && { completedAt: new Date() })
+        ...(status === 'PREPARING' && { startedAt: new Date() }),
+        ...((status === 'COMPLETE' || status === 'SERVED') && { completedAt: new Date() })
       },
       { new: true }
     );
 
     if (!kot) {
       return res.status(404).json({ error: 'KOT not found' });
+    }
+
+    // Update the associated order status
+    if (kot.orderId) {
+      await OrderModel.findByIdAndUpdate(kot.orderId, { status });
     }
 
     res.json({ message: 'KOT status updated successfully', kot });

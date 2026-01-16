@@ -93,6 +93,12 @@ const OrderSchema = new mongoose.Schema(
       default: "PENDING", 
     },
 
+    priority: {
+      type: String,
+      enum: ["LOW", "NORMAL", "HIGH", "URGENT"],
+      default: "NORMAL",
+    },
+
     customerName: {
       type: String,
       required: true,

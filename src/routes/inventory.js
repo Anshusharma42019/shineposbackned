@@ -6,7 +6,8 @@ const {
   getInventory, 
   updateInventoryItem, 
   restockItem, 
-  getLowStockItems 
+  getLowStockItems,
+  deleteInventoryItem
 } = require('../controllers/inventoryController');
 const auth = require('../middleware/auth');
 const tenantMiddleware = require('../middleware/tenant');
@@ -27,5 +28,8 @@ router.put('/update/item/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, act
 router.patch('/update/restock/:id', auth(['RESTAURANT_ADMIN', 'STAFF']), tenantMiddleware, activityLogger('Inventory'), [
   body('quantity').isNumeric().withMessage('Quantity must be a number')
 ], restockItem);
+
+// Delete inventory item
+router.delete('/delete/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, deleteInventoryItem);
 
 module.exports = router;

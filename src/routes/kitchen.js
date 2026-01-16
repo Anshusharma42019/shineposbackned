@@ -6,6 +6,7 @@ const {
   printOrderKOT,
   updateKOTStatus
 } = require('../controllers/kitchenController');
+const { updateKOTPriority } = require('../controllers/kotController');
 const auth = require('../middleware/auth');
 const tenantMiddleware = require('../middleware/tenant');
 
@@ -19,6 +20,9 @@ router.patch('/update/orders/status/:id', auth(['KITCHEN_STAFF', 'MANAGER', 'RES
 
 // Update KOT status
 router.patch('/update/kot/status/:id', auth(['KITCHEN_STAFF', 'MANAGER', 'RESTAURANT_ADMIN']), tenantMiddleware, updateKOTStatus);
+
+// Update KOT priority
+router.patch('/update/kot/priority/:id', auth(['MANAGER', 'RESTAURANT_ADMIN']), tenantMiddleware, updateKOTPriority);
 
 // Set order priority
 router.patch('/update/orders/priority/:id', auth(['MANAGER', 'RESTAURANT_ADMIN']), tenantMiddleware, setPriority);
