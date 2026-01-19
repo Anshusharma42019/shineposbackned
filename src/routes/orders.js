@@ -11,9 +11,9 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-/* =====================================================
-   CREATE ORDER (STAFF)
-===================================================== */
+
+   //CREATE ORDER (STAFF)
+
 router.post(
   "/add/staff",
   auth(["RESTAURANT_ADMIN", "MANAGER", "CHEF", "WAITER", "CASHIER"]),
