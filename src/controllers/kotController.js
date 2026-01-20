@@ -90,7 +90,7 @@ const updateKOTStatus = async (req, res) => {
     
     console.log('UPDATE KOT STATUS - ID:', id, 'Status:', status);
     
-    const allowedStatuses = ['PENDING', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED', 'PAID'];
+    const allowedStatuses = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
     if (!allowedStatuses.includes(status)) {
       console.log('Invalid KOT status:', status);
       return res.status(400).json({ error: 'Invalid KOT status' });
@@ -225,9 +225,9 @@ const getKitchenDashboard = async (req, res) => {
     
     const [pendingKOTs, inProgressKOTs, completedToday] = await Promise.all([
       KOTModel.countDocuments({ status: 'PENDING' }),
-      KOTModel.countDocuments({ status: 'IN_PROGRESS' }),
+      KOTModel.countDocuments({ status: 'PREPARING' }),
       KOTModel.countDocuments({
-        status: 'COMPLETED',
+        status: 'SERVED',
         completedAt: {
           $gte: new Date(new Date().setHours(0, 0, 0, 0))
         }
@@ -235,7 +235,7 @@ const getKitchenDashboard = async (req, res) => {
     ]);
     
     const recentKOTs = await KOTModel.find({
-      status: { $in: ['PENDING', 'IN_PROGRESS'] }
+      status: { $in: ['PENDING', 'PREPARING'] }
     })
     .sort({ priority: -1, createdAt: 1 })
     .limit(10);
