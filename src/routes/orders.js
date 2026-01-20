@@ -4,7 +4,9 @@ const { activityLogger } = require("../middleware/activityLogger");
 const {
   getOrders,
   createOrder,
+  addItemsToOrder,
   updateOrderStatus,
+  updateItemStatus,
   updateOrderPriority,
 } = require("../controllers/orderController");
 const auth = require("../middleware/auth");
@@ -48,6 +50,39 @@ router.post(
 router.use(
   auth(["RESTAURANT_ADMIN", "MANAGER", "CHEF", "WAITER", "CASHIER"]),
   checkSubscription,
+);
+
+/* =====================================================
+   ADD ITEMS TO EXISTING ORDER
+===================================================== */
+router.post(
+  "/add-items/:orderId",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+    body("items").isArray({ min: 1 }).withMessage("Items are required"),
+    body("items.*.menuId").notEmpty().withMessage("Menu ID is required"),
+    body("items.*.quantity")
+      .isInt({ min: 1 })
+      .withMessage("Quantity must be at least 1"),
+  ],
+  addItemsToOrder,
+);
+
+/* =====================================================
+   UPDATE ITEM STATUS
+===================================================== */
+router.patch(
+  "/update/item-status/:orderId/:itemIndex",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+    param("itemIndex").isInt({ min: 0 }).withMessage("Invalid item index"),
+    body("status")
+      .isIn(["PENDING", "PREPARING", "READY", "SERVED"])
+      .withMessage("Invalid item status"),
+  ],
+  updateItemStatus,
 );
 
 /* =====================================================

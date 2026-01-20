@@ -40,12 +40,17 @@ const KOTSchema = new mongoose.Schema({
       name: String,
       price: Number
     }],
-    specialInstructions: String
+    specialInstructions: String,
+    status: {
+      type: String,
+      enum: ['PENDING', 'PREPARING', 'READY', 'SERVED'],
+      default: 'PENDING'
+    }
   }],
   
   status: {
     type: String,
-    enum: ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+    enum: ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'],
     default: 'PENDING'
   },
   

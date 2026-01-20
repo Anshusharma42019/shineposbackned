@@ -70,6 +70,13 @@ const OrderSchema = new mongoose.Schema(
           required: true,
           min: 0,
         },
+
+        // ITEM STATUS
+        status: {
+          type: String,
+          enum: ["PENDING", "PREPARING", "READY", "SERVED"],
+          default: "PENDING",
+        },
       },
     ],
 

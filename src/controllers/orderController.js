@@ -5,6 +5,159 @@ const kotPrinter = require("../utils/kotPrinter");
 const { prepareKOTData } = require("../utils/kotDataHelper");
 
 /* =====================================================
+   ADD ITEMS TO EXISTING ORDER
+===================================================== */
+const addItemsToOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { items } = req.body;
+
+    if (!items || !items.length) {
+      return res.status(400).json({ error: "Items are required" });
+    }
+
+    const restaurantSlug = req.user?.restaurantSlug;
+    if (!restaurantSlug) {
+      return res.status(400).json({ error: "Restaurant slug not found" });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
+    const MenuModel = TenantModelFactory.getMenuItemModel(restaurantSlug);
+    const VariationModel = TenantModelFactory.getVariationModel(restaurantSlug);
+    const AddonModel = TenantModelFactory.getAddonModel(restaurantSlug);
+
+    // Find existing order
+    const existingOrder = await OrderModel.findById(orderId);
+    if (!existingOrder) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Find existing KOT for this order
+    let existingKOT = await KOTModel.findOne({ orderId });
+    if (!existingKOT) {
+      return res.status(404).json({ error: "KOT not found for this order" });
+    }
+
+    let totalAmount = 0;
+    const newOrderItems = [];
+    const newKOTItems = [];
+
+    // Process new items
+    for (const item of items) {
+      const { menuId, quantity, variation, addons } = item;
+
+      if (!menuId || !quantity) {
+        return res.status(400).json({ error: "Invalid item data" });
+      }
+
+      const menuItem = await MenuModel.findById(menuId);
+      if (!menuItem || !menuItem.isAvailable) {
+        return res.status(400).json({ error: "Menu item not available" });
+      }
+
+      // Check if same item exists with "SERVED" status
+      const existingItemIndex = existingOrder.items.findIndex(existingItem => 
+        existingItem.menuId.toString() === menuId.toString() &&
+        JSON.stringify(existingItem.variation) === JSON.stringify(variation) &&
+        JSON.stringify(existingItem.addons) === JSON.stringify(addons) &&
+        existingItem.status === "SERVED"
+      );
+
+      // Price calculation
+      const basePrice = 0;
+      let finalVariation = null;
+      let variationPrice = 0;
+
+      if (variation && variation.variationId) {
+        const validVariation = await VariationModel.findById(variation.variationId);
+        if (validVariation) {
+          variationPrice = validVariation.price;
+          finalVariation = {
+            variationId: validVariation._id,
+            name: validVariation.name,
+            price: validVariation.price,
+          };
+        }
+      }
+
+      let addonsTotal = 0;
+      const finalAddons = [];
+
+      if (addons && addons.length) {
+        for (const addon of addons) {
+          if (addon.addonId) {
+            const validAddon = await AddonModel.findById(addon.addonId);
+            if (validAddon) {
+              addonsTotal += validAddon.price;
+              finalAddons.push({
+                addonId: validAddon._id,
+                name: validAddon.name,
+                price: validAddon.price,
+              });
+            }
+          }
+        }
+      }
+
+      const itemTotal = (basePrice + variationPrice + addonsTotal) * quantity;
+      totalAmount += itemTotal;
+
+      if (existingItemIndex !== -1) {
+        // Same item with SERVED status exists - add as new line item with PENDING status
+        console.log('Same item with SERVED status found, adding as new line item');
+      }
+
+      // Always add as new line item (requirement: add new line item)
+      const newItem = {
+        menuId: menuItem._id,
+        name: menuItem.itemName,
+        basePrice,
+        quantity,
+        variation: finalVariation,
+        addons: finalAddons,
+        itemTotal,
+        status: "PENDING" // New items are always pending
+      };
+
+      newOrderItems.push(newItem);
+      newKOTItems.push({
+        menuId: menuItem._id,
+        name: menuItem.itemName,
+        quantity,
+        variation: finalVariation,
+        addons: finalAddons,
+        status: "PENDING"
+      });
+    }
+
+    // Add new items to existing order
+    existingOrder.items.push(...newOrderItems);
+    existingOrder.totalAmount += totalAmount;
+    await existingOrder.save();
+
+    // Add new items to existing KOT (reuse same KOT)
+    existingKOT.items.push(...newKOTItems);
+    await existingKOT.save();
+
+    console.log('Items added to existing order:', existingOrder.orderNumber);
+    console.log('Items added to existing KOT:', existingKOT.kotNumber);
+
+    res.json({
+      message: "Items added to existing order successfully",
+      order: existingOrder,
+      kot: existingKOT
+    });
+  } catch (error) {
+    console.error("Add items to order error:", error);
+    res.status(500).json({
+      error: "Failed to add items to order",
+      details: error.message,
+    });
+  }
+};
+
+/* =====================================================
    CREATE ORDER
 ===================================================== */
 const createOrder = async (req, res) => {
@@ -119,6 +272,7 @@ const createOrder = async (req, res) => {
         variation: finalVariation,
         addons: finalAddons,
         itemTotal,
+        status: "PENDING", // Default status for new items
       });
     }
 
@@ -181,7 +335,8 @@ const createOrder = async (req, res) => {
           name: item.name,
           quantity: item.quantity,
           variation: item.variation,
-          addons: item.addons
+          addons: item.addons,
+          status: "PENDING" // Default status for KOT items
         })),
         customerName: savedOrder.customerName
       });
@@ -439,12 +594,63 @@ const printKOT = async (req, res) => {
 };
 
 /* =====================================================
+   UPDATE ITEM STATUS
+===================================================== */
+const updateItemStatus = async (req, res) => {
+  try {
+    const { orderId, itemIndex } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["PENDING", "PREPARING", "READY", "SERVED"];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid item status" });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+    const KOTModel = TenantModelFactory.getKOTModel(req.user.restaurantSlug);
+
+    // Update item status in order
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (!order.items[itemIndex]) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    order.items[itemIndex].status = status;
+    await order.save();
+
+    // Update corresponding item in KOT
+    const kot = await KOTModel.findOne({ orderId });
+    if (kot && kot.items[itemIndex]) {
+      kot.items[itemIndex].status = status;
+      await kot.save();
+    }
+
+    console.log('Item status updated:', status, 'for item index:', itemIndex);
+
+    res.json({
+      message: "Item status updated successfully",
+      order,
+      kot
+    });
+  } catch (error) {
+    console.error("Update item status error:", error);
+    res.status(500).json({ error: "Failed to update item status" });
+  }
+};
+
+/* =====================================================
    EXPORTS
 ===================================================== */
 module.exports = {
   createOrder,
+  addItemsToOrder,
   getOrders,
   updateOrderStatus,
+  updateItemStatus,
   processPayment,
   updateOrderPriority,
   getKOTData,
