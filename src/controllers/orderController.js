@@ -137,7 +137,7 @@ const addItemsToOrder = async (req, res) => {
     await existingOrder.save();
 
     // Add new items to existing KOT (reuse same KOT)
-    existingKOT.items.push(...newKOTItems);
+    existingKOT.extraItems.push(...newKOTItems);
     await existingKOT.save();
 
     console.log('Items added to existing order:', existingOrder.orderNumber);
@@ -699,6 +699,9 @@ const addExtraItemsToOrder = async (req, res) => {
     const { orderId } = req.params;
     const { extraItems } = req.body;
 
+    console.log('Adding extra items to order:', orderId);
+    console.log('Extra items data:', JSON.stringify(extraItems, null, 2));
+
     if (!extraItems || !extraItems.length) {
       return res.status(400).json({ error: "Extra items are required" });
     }
@@ -708,7 +711,10 @@ const addExtraItemsToOrder = async (req, res) => {
       return res.status(400).json({ error: "Restaurant slug not found" });
     }
 
+    console.log('Restaurant slug:', restaurantSlug);
+
     const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
     const MenuModel = TenantModelFactory.getMenuItemModel(restaurantSlug);
     const VariationModel = TenantModelFactory.getVariationModel(restaurantSlug);
     const AddonModel = TenantModelFactory.getAddonModel(restaurantSlug);
@@ -718,8 +724,14 @@ const addExtraItemsToOrder = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
+    let existingKOT = await KOTModel.findOne({ orderId });
+    if (!existingKOT) {
+      return res.status(404).json({ error: "KOT not found for this order" });
+    }
+
     let totalAmount = 0;
     const newExtraItems = [];
+    const newKOTExtraItems = [];
 
     for (const item of extraItems) {
       const { menuId, quantity, variation, addons } = item;
@@ -771,7 +783,7 @@ const addExtraItemsToOrder = async (req, res) => {
       const itemTotal = (basePrice + variationPrice + addonsTotal) * quantity;
       totalAmount += itemTotal;
 
-      newExtraItems.push({
+      const newExtraItem = {
         menuId: menuItem._id,
         name: menuItem.itemName,
         basePrice,
@@ -780,6 +792,16 @@ const addExtraItemsToOrder = async (req, res) => {
         addons: finalAddons,
         itemTotal,
         status: "PENDING"
+      };
+
+      newExtraItems.push(newExtraItem);
+      newKOTExtraItems.push({
+        menuId: menuItem._id,
+        name: menuItem.itemName,
+        quantity,
+        variation: finalVariation,
+        addons: finalAddons,
+        status: "PENDING"
       });
     }
 
@@ -787,9 +809,13 @@ const addExtraItemsToOrder = async (req, res) => {
     order.totalAmount += totalAmount;
     await order.save();
 
+    existingKOT.extraItems.push(...newKOTExtraItems);
+    await existingKOT.save();
+
     res.json({
       message: "Extra items added successfully",
-      order
+      order,
+      kot: existingKOT
     });
   } catch (error) {
     console.error("Add extra items error:", error);
@@ -814,6 +840,7 @@ const updateExtraItemStatus = async (req, res) => {
     }
 
     const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+    const KOTModel = TenantModelFactory.getKOTModel(req.user.restaurantSlug);
 
     const order = await OrderModel.findById(orderId);
     if (!order) {
@@ -827,13 +854,40 @@ const updateExtraItemStatus = async (req, res) => {
     order.extraItems[itemIndex].status = status;
     await order.save();
 
+    const kot = await KOTModel.findOne({ orderId });
+    if (kot && kot.extraItems[itemIndex]) {
+      kot.extraItems[itemIndex].status = status;
+      await kot.save();
+    }
+
     res.json({
       message: "Extra item status updated successfully",
-      order
+      order,
+      kot
     });
   } catch (error) {
     console.error("Update extra item status error:", error);
     res.status(500).json({ error: "Failed to update extra item status" });
+  }
+};
+
+/* =====================================================
+   GET SINGLE ORDER
+===================================================== */
+const getOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+    
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    
+    res.json({ order });
+  } catch (error) {
+    console.error("Get order error:", error);
+    res.status(500).json({ error: "Failed to get order" });
   }
 };
 
@@ -845,6 +899,7 @@ module.exports = {
   addItemsToOrder,
   addExtraItemsToOrder,
   getOrders,
+  getOrder,
   updateOrderStatus,
   updateItemStatus,
   updateExtraItemStatus,

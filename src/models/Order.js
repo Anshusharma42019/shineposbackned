@@ -82,22 +82,10 @@ const OrderSchema = new mongoose.Schema(
     
     extraItems: [
       {
-        menuId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Menu",
-          required: true,
-        },
-
         name: {
           type: String,
           required: true,
           trim: true,
-        },
-
-        basePrice: {
-          type: Number,
-          required: true,
-          min: 0,
         },
 
         quantity: {
@@ -106,48 +94,16 @@ const OrderSchema = new mongoose.Schema(
           min: 1,
         },
 
-        // VARIATION (Size, Type, etc.)
-        variation: {
-          variationId: {
-            type: mongoose.Schema.Types.ObjectId,
-          },
-          name: {
-            type: String,
-          },
-          price: {
-            type: Number,
-            min: 0,
-          },
-        },
-
-        // ADD-ONS (Cheese, Extra Toppings, etc.)
-        addons: [
-          {
-            addonId: {
-              type: mongoose.Schema.Types.ObjectId,
-            },
-            name: {
-              type: String,
-            },
-            price: {
-              type: Number,
-              min: 0,
-            },
-          },
-        ],
-
-        // FINAL ITEM PRICE
-        itemTotal: {
+        price: {
           type: Number,
           required: true,
           min: 0,
         },
 
-        // ITEM STATUS
-        status: {
-          type: String,
-          enum: ["PENDING", "PREPARING", "READY", "SERVED"],
-          default: "PENDING",
+        total: {
+          type: Number,
+          required: true,
+          min: 0,
         },
       },
     ],

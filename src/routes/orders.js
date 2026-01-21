@@ -3,6 +3,7 @@ const { body, param } = require("express-validator");
 const { activityLogger } = require("../middleware/activityLogger");
 const {
   getOrders,
+  getOrder,
   createOrder,
   addItemsToOrder,
   addExtraItemsToOrder,
@@ -12,6 +13,7 @@ const {
   updateOrderPriority,
   processPayment,
 } = require("../controllers/orderController");
+const { fixExtraItemsField } = require("../controllers/fixController");
 const auth = require("../middleware/auth");
 const checkSubscription = require("../middleware/checkSubscription");
 const TenantModelFactory = require("../models/TenantModelFactory");
@@ -119,6 +121,30 @@ router.patch(
       .withMessage("Invalid item status"),
   ],
   updateItemStatus,
+);
+
+/* =====================================================
+   FIX EXTRA ITEMS FIELD
+===================================================== */
+router.patch(
+  "/fix-extra-items/:orderId",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+  ],
+  fixExtraItemsField,
+);
+
+/* =====================================================
+   GET SINGLE ORDER
+===================================================== */
+router.get(
+  "/get/:orderId",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+  ],
+  getOrder,
 );
 
 /* =====================================================

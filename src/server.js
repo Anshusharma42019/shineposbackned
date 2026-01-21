@@ -7,6 +7,9 @@ const connectDB = require('./utils/database');
 // Auto-save middleware
 require('./middleware/autoSave');
 
+// Migration for extraItems
+const { migrateExtraItems } = require('./utils/migrateExtraItems');
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const restaurantRoutes = require('./routes/restaurants');
@@ -41,6 +44,11 @@ connectDB();
 // Initialize default settings
 const { initializeDefaultSettings } = require('./controllers/settingsController');
 initializeDefaultSettings();
+
+// Run migration for extraItems
+setTimeout(() => {
+  migrateExtraItems();
+}, 2000);
 
 // Middleware
 app.use(cors({
