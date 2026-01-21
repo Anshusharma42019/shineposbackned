@@ -650,14 +650,162 @@ const updateItemStatus = async (req, res) => {
 };
 
 /* =====================================================
+   ADD EXTRA ITEMS TO ORDER
+===================================================== */
+const addExtraItemsToOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { extraItems } = req.body;
+
+    if (!extraItems || !extraItems.length) {
+      return res.status(400).json({ error: "Extra items are required" });
+    }
+
+    const restaurantSlug = req.user?.restaurantSlug;
+    if (!restaurantSlug) {
+      return res.status(400).json({ error: "Restaurant slug not found" });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const MenuModel = TenantModelFactory.getMenuItemModel(restaurantSlug);
+    const VariationModel = TenantModelFactory.getVariationModel(restaurantSlug);
+    const AddonModel = TenantModelFactory.getAddonModel(restaurantSlug);
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    let totalAmount = 0;
+    const newExtraItems = [];
+
+    for (const item of extraItems) {
+      const { menuId, quantity, variation, addons } = item;
+
+      if (!menuId || !quantity) {
+        return res.status(400).json({ error: "Invalid extra item data" });
+      }
+
+      const menuItem = await MenuModel.findById(menuId);
+      if (!menuItem || !menuItem.isAvailable) {
+        return res.status(400).json({ error: "Menu item not available" });
+      }
+
+      const basePrice = 0;
+      let finalVariation = null;
+      let variationPrice = 0;
+
+      if (variation && variation.variationId) {
+        const validVariation = await VariationModel.findById(variation.variationId);
+        if (validVariation) {
+          variationPrice = validVariation.price;
+          finalVariation = {
+            variationId: validVariation._id,
+            name: validVariation.name,
+            price: validVariation.price,
+          };
+        }
+      }
+
+      let addonsTotal = 0;
+      const finalAddons = [];
+
+      if (addons && addons.length) {
+        for (const addon of addons) {
+          if (addon.addonId) {
+            const validAddon = await AddonModel.findById(addon.addonId);
+            if (validAddon) {
+              addonsTotal += validAddon.price;
+              finalAddons.push({
+                addonId: validAddon._id,
+                name: validAddon.name,
+                price: validAddon.price,
+              });
+            }
+          }
+        }
+      }
+
+      const itemTotal = (basePrice + variationPrice + addonsTotal) * quantity;
+      totalAmount += itemTotal;
+
+      newExtraItems.push({
+        menuId: menuItem._id,
+        name: menuItem.itemName,
+        basePrice,
+        quantity,
+        variation: finalVariation,
+        addons: finalAddons,
+        itemTotal,
+        status: "PENDING"
+      });
+    }
+
+    order.extraItems.push(...newExtraItems);
+    order.totalAmount += totalAmount;
+    await order.save();
+
+    res.json({
+      message: "Extra items added successfully",
+      order
+    });
+  } catch (error) {
+    console.error("Add extra items error:", error);
+    res.status(500).json({
+      error: "Failed to add extra items",
+      details: error.message,
+    });
+  }
+};
+
+/* =====================================================
+   UPDATE EXTRA ITEM STATUS
+===================================================== */
+const updateExtraItemStatus = async (req, res) => {
+  try {
+    const { orderId, itemIndex } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["PENDING", "PREPARING", "READY", "SERVED"];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid extra item status" });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (!order.extraItems[itemIndex]) {
+      return res.status(404).json({ error: "Extra item not found" });
+    }
+
+    order.extraItems[itemIndex].status = status;
+    await order.save();
+
+    res.json({
+      message: "Extra item status updated successfully",
+      order
+    });
+  } catch (error) {
+    console.error("Update extra item status error:", error);
+    res.status(500).json({ error: "Failed to update extra item status" });
+  }
+};
+
+/* =====================================================
    EXPORTS
 ===================================================== */
 module.exports = {
   createOrder,
   addItemsToOrder,
+  addExtraItemsToOrder,
   getOrders,
   updateOrderStatus,
   updateItemStatus,
+  updateExtraItemStatus,
   processPayment,
   updateOrderPriority,
   getKOTData,
