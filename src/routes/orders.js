@@ -5,8 +5,10 @@ const {
   getOrders,
   createOrder,
   addItemsToOrder,
+  addExtraItemsToOrder,
   updateOrderStatus,
   updateItemStatus,
+  updateExtraItemStatus,
   updateOrderPriority,
   processPayment,
 } = require("../controllers/orderController");
@@ -68,6 +70,39 @@ router.post(
       .withMessage("Quantity must be at least 1"),
   ],
   addItemsToOrder,
+);
+
+/* =====================================================
+   ADD EXTRA ITEMS TO EXISTING ORDER
+===================================================== */
+router.post(
+  "/add-extra-items/:orderId",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+    body("extraItems").isArray({ min: 1 }).withMessage("Extra items are required"),
+    body("extraItems.*.menuId").notEmpty().withMessage("Menu ID is required"),
+    body("extraItems.*.quantity")
+      .isInt({ min: 1 })
+      .withMessage("Quantity must be at least 1"),
+  ],
+  addExtraItemsToOrder,
+);
+
+/* =====================================================
+   UPDATE EXTRA ITEM STATUS
+===================================================== */
+router.patch(
+  "/update/extra-item-status/:orderId/:itemIndex",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+    param("itemIndex").isInt({ min: 0 }).withMessage("Invalid item index"),
+    body("status")
+      .isIn(["PENDING", "PREPARING", "READY", "SERVED"])
+      .withMessage("Invalid extra item status"),
+  ],
+  updateExtraItemStatus,
 );
 
 /* =====================================================
