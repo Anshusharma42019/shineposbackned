@@ -14,16 +14,13 @@ const registerSuperAdmin = async (req, res) => {
 
     const { email, password, name } = req.body;
 
-    // Check if super admin already exists
     const existingSuperAdmin = await SuperAdmin.findOne({ email });
     if (existingSuperAdmin) {
       return res.status(400).json({ error: 'Super admin already exists with this email' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create super admin
     const superAdmin = new SuperAdmin({
       email,
       password: hashedPassword,
@@ -33,7 +30,6 @@ const registerSuperAdmin = async (req, res) => {
 
     await superAdmin.save();
 
-    // Generate token
     const token = generateToken({
       userId: superAdmin._id,
       role: superAdmin.role
@@ -59,116 +55,78 @@ const login = async (req, res) => {
   try {
     const { email, password, restaurantSlug } = req.body;
 
-    let user, role, tokenPayload;
+    // Super Admin Login (no slug required)
+    if (!restaurantSlug) {
+      const superAdmin = await SuperAdmin.findOne({ email, isActive: true });
+      
+      if (!superAdmin || !await bcrypt.compare(password, superAdmin.password)) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
 
-    if (restaurantSlug) {
-      // First try Restaurant admin login
-      const restaurant = await Restaurant.findOne({ 
-        slug: restaurantSlug, 
-        email: email,
-        isActive: true 
+      const token = generateToken({
+        userId: superAdmin._id,
+        role: superAdmin.role
       });
-      
-      if (restaurant && await bcrypt.compare(password, restaurant.password)) {
-        tokenPayload = {
-          userId: restaurant._id,
-          role: 'RESTAURANT_ADMIN',
-          restaurantSlug: restaurantSlug
-        };
-        
-        user = {
-          _id: restaurant._id,
-          email: restaurant.email,
-          name: restaurant.ownerName
-        };
-      } else {
-        // Try staff login in tenant database
-        const StaffModel = TenantModelFactory.getStaffModel(restaurantSlug);
-        const staff = await StaffModel.findOne({ email, isActive: true });
-        
-        if (staff && await bcrypt.compare(password, staff.password)) {
-          tokenPayload = {
-            userId: staff._id,
-            role: staff.role,
-            restaurantSlug: restaurantSlug
-          };
-          
-          user = {
-            _id: staff._id,
-            email: staff.email,
-            name: staff.name
-          };
-        } else {
-          return res.status(401).json({ error: 'Invalid credentials' });
+
+      return res.json({
+        token,
+        user: {
+          id: superAdmin._id,
+          email: superAdmin.email,
+          name: superAdmin.name,
+          role: superAdmin.role
         }
-      }
-    } else {
-      // Try Super admin login first
-      user = await SuperAdmin.findOne({ email, isActive: true });
-      
-      if (user && await bcrypt.compare(password, user.password)) {
-        tokenPayload = {
-          userId: user._id,
-          role: user.role
-        };
-      } else {
-        // Try Restaurant login
-        user = await Restaurant.findOne({ email, isActive: true });
-        
-        if (user && await bcrypt.compare(password, user.password)) {
-          tokenPayload = {
-            userId: user._id,
-            role: 'RESTAURANT_ADMIN',
-            restaurantSlug: user.slug
-          };
-        } else {
-          // Try staff login across all restaurants
-          const restaurants = await Restaurant.find({ isActive: true });
-          let staffFound = false;
-          
-          for (const restaurant of restaurants) {
-            try {
-              const StaffModel = TenantModelFactory.getStaffModel(restaurant.slug);
-              const staff = await StaffModel.findOne({ email, isActive: true });
-              
-              if (staff && await bcrypt.compare(password, staff.password)) {
-                tokenPayload = {
-                  userId: staff._id,
-                  role: staff.role,
-                  restaurantSlug: restaurant.slug
-                };
-                
-                user = {
-                  _id: staff._id,
-                  email: staff.email,
-                  name: staff.name
-                };
-                
-                staffFound = true;
-                break;
-              }
-            } catch (error) {
-              continue;
-            }
-          }
-          
-          if (!staffFound) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-          }
-        }
-      }
+      });
     }
 
-    const token = generateToken(tokenPayload);
+    // Restaurant Login (slug required)
+    const restaurant = await Restaurant.findOne({ 
+      slug: restaurantSlug, 
+      email: email,
+      isActive: true 
+    });
+    
+    if (restaurant && await bcrypt.compare(password, restaurant.password)) {
+      const token = generateToken({
+        userId: restaurant._id,
+        role: 'RESTAURANT_ADMIN',
+        restaurantSlug: restaurantSlug
+      });
+      
+      return res.json({
+        token,
+        user: {
+          id: restaurant._id,
+          email: restaurant.email,
+          name: restaurant.ownerName,
+          role: 'RESTAURANT_ADMIN',
+          restaurantSlug: restaurantSlug
+        }
+      });
+    }
 
+    // Staff Login
+    const StaffModel = TenantModelFactory.getStaffModel(restaurantSlug);
+    const staff = await StaffModel.findOne({ email, isActive: true });
+    
+    if (!staff || !await bcrypt.compare(password, staff.password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = generateToken({
+      userId: staff._id,
+      role: staff.role,
+      restaurantSlug: restaurantSlug
+    });
+    
     res.json({
       token,
       user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: tokenPayload.role,
-        restaurantSlug: tokenPayload.restaurantSlug || null
+        id: staff._id,
+        email: staff.email,
+        name: staff.name,
+        role: staff.role,
+        restaurantSlug: restaurantSlug
       }
     });
   } catch (error) {
