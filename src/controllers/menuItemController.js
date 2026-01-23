@@ -36,7 +36,13 @@ const createMenuItem = async (req, res) => {
 const getMenuItems = async (req, res) => {
     try {
         const MenuItem = req.tenantModels.MenuItem;
-        const menuItems = await MenuItem.find().populate('categoryID').populate('addon').populate('variation').sort({ createdAt: -1 });
+        const menuItems = await MenuItem.find()
+            .populate('categoryID', 'name')
+            .populate('addon', 'name price')
+            .populate('variation', 'name price')
+            .select('itemName categoryID price status imageUrl timeToPrepare foodType addon variation')
+            .lean()
+            .sort({ createdAt: -1 });
         res.json({ menuItems });
     } catch (error) {
         console.error('Get menu items error:', error);
@@ -49,7 +55,11 @@ const getMenuItemById = async (req, res) => {
         const { id } = req.params;
         const MenuItem = req.tenantModels.MenuItem;
         
-        const menuItem = await MenuItem.findById(id).populate('categoryID').populate('addon').populate('variation');
+        const menuItem = await MenuItem.findById(id)
+            .populate('categoryID', 'name')
+            .populate('addon', 'name price')
+            .populate('variation', 'name price')
+            .lean();
         if (!menuItem) {
             return res.status(404).json({ error: 'Menu item not found' });
         }
