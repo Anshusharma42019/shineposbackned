@@ -2,21 +2,31 @@ const cloudinary = require('../config/cloudinary');
 
 const uploadMedia = async (req, res) => {
   try {
+    console.log('Upload request received');
+    console.log('File:', req.file ? req.file.originalname : 'No file');
+    
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const isVideo = req.file.mimetype.startsWith('video/');
+    const restaurantSlug = req.user?.restaurantSlug || 'default';
     
+    console.log('Starting Cloudinary upload...');
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           resource_type: isVideo ? 'video' : 'image',
-          folder: `pos-shine/${req.tenantId}`,
+          folder: `pos-shine/${restaurantSlug}`,
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('Cloudinary error:', error);
+            reject(error);
+          } else {
+            console.log('Cloudinary success:', result.secure_url);
+            resolve(result);
+          }
         }
       ).end(req.file.buffer);
     });
@@ -28,6 +38,7 @@ const uploadMedia = async (req, res) => {
       type: isVideo ? 'video' : 'image'
     });
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 };
