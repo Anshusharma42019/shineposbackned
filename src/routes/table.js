@@ -12,7 +12,8 @@ const {
     deleteTable,
     getAvailableTables,
     transferTable,
-    mergeTables
+    mergeTables,
+    transferAndMerge
 } = require('../controllers/tableController');
 
 const router = express.Router();
@@ -45,5 +46,9 @@ router.post('/tables/merge', auth(['RESTAURANT_ADMIN', 'MANAGER', 'WAITER']), te
     body('tableIds').isArray({ min: 2 }).withMessage('At least 2 tables required'),
     body('guestCount').isInt({ min: 1 }).withMessage('Valid guest count required')
 ], mergeTables);
+
+router.post('/tables/transfer-and-merge', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, activityLogger('Transfer and Merge'), [
+    body('brokenTableId').isMongoId().withMessage('Valid broken table ID is required')
+], transferAndMerge);
 
 module.exports = router;
