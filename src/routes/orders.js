@@ -12,6 +12,7 @@ const {
   updateExtraItemStatus,
   updateOrderPriority,
   processPayment,
+  applyDiscount,
 } = require("../controllers/orderController");
 const { fixExtraItemsField } = require("../controllers/fixController");
 const auth = require("../middleware/auth");
@@ -190,6 +191,20 @@ router.patch(
       .withMessage("Invalid priority"),
   ],
   updateOrderPriority,
+);
+
+/*=====================================================
+   APPLY DISCOUNT
+======================================================*/
+router.patch(
+  "/discount/:orderId",
+  activityLogger("Order"),
+  [
+    param("orderId").isMongoId().withMessage("Invalid order ID"),
+    body("percentage").isFloat({ min: 0.01, max: 100 }).withMessage("Percentage must be between 0.01 and 100"),
+    body("reason").optional().isString().withMessage("Reason must be a string"),
+  ],
+  applyDiscount,
 );
 
 /*=====================================================

@@ -285,6 +285,17 @@ const createOrder = async (req, res) => {
       req.tenantModels?.Order ||
       TenantModelFactory.getOrderModel(restaurantSlug);
 
+    // Calculate discount if provided
+    const { discount } = req.body;
+    let subtotal = totalAmount;
+    let discountAmount = 0;
+    let finalTotal = totalAmount;
+
+    if (discount && discount.percentage > 0) {
+      discountAmount = (subtotal * discount.percentage) / 100;
+      finalTotal = subtotal - discountAmount;
+    }
+
     // Handle table assignment if provided
     let tableNumber = null;
     let mergedTables = [];
@@ -320,7 +331,14 @@ const createOrder = async (req, res) => {
     const order = new OrderModel({
       orderNumber,
       items: orderItems,
-      totalAmount,
+      subtotal,
+      discount: discount ? {
+        percentage: discount.percentage,
+        amount: discountAmount,
+        reason: discount.reason || "",
+        appliedBy: req.user?.id || null,
+      } : undefined,
+      totalAmount: finalTotal,
       customerName,
       customerPhone: customerPhone || "",
       tableId: tableId || null,
@@ -399,7 +417,7 @@ const getOrders = async (req, res) => {
       TenantModelFactory.getOrderModel(req.user.restaurantSlug);
 
     const orders = await OrderModel.find()
-      .select('orderNumber items totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails')
+      .select('orderNumber items extraItems subtotal discount totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails')
       .lean()
       .sort({ createdAt: -1 });
 
@@ -512,16 +530,22 @@ const processPayment = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
+    // Use totalAmount (which includes discount) for payment validation
     if (amount !== order.totalAmount) {
       return res
         .status(400)
-        .json({ error: "Payment amount does not match order total" });
+        .json({ 
+          error: "Payment amount does not match order total",
+          expected: order.totalAmount,
+          received: amount,
+          discount: order.discount || null
+        });
     }
 
     order.status = 'PAID';
     order.paymentDetails = {
       method,
-      amount: order.totalAmount,
+      amount: order.totalAmount, // Use discounted total
       transactionId,
       paidAt: new Date(),
     };
@@ -558,6 +582,12 @@ const processPayment = async (req, res) => {
     res.json({
       message: "Payment processed successfully",
       order,
+      billing: {
+        subtotal: order.subtotal,
+        discount: order.discount,
+        finalAmount: order.totalAmount,
+        paidAmount: order.paymentDetails.amount
+      }
     });
   } catch (error) {
     console.error("Process payment error:", error);
@@ -875,6 +905,59 @@ const updateExtraItemStatus = async (req, res) => {
 };
 
 /* =====================================================
+   APPLY DISCOUNT TO ORDER
+===================================================== */
+const applyDiscount = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { percentage, reason } = req.body;
+
+    if (!percentage || percentage <= 0 || percentage > 100) {
+      return res.status(400).json({ error: "Percentage must be between 0.01 and 100" });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(req.user.restaurantSlug);
+    const order = await OrderModel.findById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order.status === 'PAID' || order.status === 'CANCELLED') {
+      return res.status(400).json({ error: "Cannot apply discount to paid or cancelled orders" });
+    }
+
+    const subtotal = order.subtotal || order.totalAmount;
+    const discountAmount = (subtotal * percentage) / 100;
+    const finalTotal = subtotal - discountAmount;
+
+    order.subtotal = subtotal;
+    order.discount = {
+      percentage,
+      amount: discountAmount,
+      reason: reason || "",
+      appliedBy: req.user?.id || null,
+    };
+    order.totalAmount = finalTotal;
+
+    await order.save();
+
+    res.json({
+      message: "Discount applied successfully",
+      order,
+      discountApplied: {
+        percentage,
+        amount: discountAmount,
+        finalTotal
+      }
+    });
+  } catch (error) {
+    console.error("Apply discount error:", error);
+    res.status(500).json({ error: "Failed to apply discount" });
+  }
+};
+
+/* =====================================================
    GET SINGLE ORDER
 ===================================================== */
 const getOrder = async (req, res) => {
@@ -908,6 +991,7 @@ module.exports = {
   updateExtraItemStatus,
   processPayment,
   updateOrderPriority,
+  applyDiscount,
   getKOTData,
   printKOT,
 };
