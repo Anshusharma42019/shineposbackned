@@ -2,76 +2,71 @@ const express = require('express');
 const router = express.Router();
 const TenantModelFactory = require('../models/TenantModelFactory');
 
-// Zomato Order History Webhook
+// Zomato Order History Webhook - Dyno fetches order history via POST
 router.post('/:restaurantId/orders/history', async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const orderData = req.body;
-
-    console.log('Zomato Webhook Received:', {
-      restaurantId,
-      orderData
-    });
+    const { date } = req.body; // Expected format: 'YYYY-MM-DD' or '28-01-2026'
 
     // Find restaurant by ID or slug
     const Restaurant = require('../models/Restaurant');
     let restaurant;
     
-    // Check if it's a valid ObjectId
     if (restaurantId.match(/^[0-9a-fA-F]{24}$/)) {
       restaurant = await Restaurant.findById(restaurantId);
     } else {
-      // Treat as slug
       restaurant = await Restaurant.findOne({ slug: restaurantId });
     }
     
     if (!restaurant) {
       return res.status(404).json({ 
         success: false, 
-        error: 'Restaurant not found',
-        hint: 'Use restaurant MongoDB ID or slug'
+        error: 'Restaurant not found'
       });
     }
 
     // Get Order model for this restaurant
     const OrderModel = TenantModelFactory.getOrderModel(restaurant.slug);
 
-    // Create order from Zomato data
-    const newOrder = new OrderModel({
-      orderNumber: orderData.order_id || `ZOMATO-${Date.now()}`,
-      customerName: orderData.customer_name || 'Zomato Customer',
-      customerPhone: orderData.customer_phone || '',
-      items: orderData.items?.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        itemTotal: item.quantity * item.price
-      })) || [],
-      totalAmount: orderData.total_amount || 0,
-      status: orderData.status || 'PENDING',
-      paymentMethod: orderData.payment_method || 'ONLINE',
-      source: 'ZOMATO',
-      metadata: {
-        zomato_order_id: orderData.order_id,
-        delivery_address: orderData.delivery_address,
-        special_instructions: orderData.special_instructions
-      }
-    });
+    // Build query
+    const query = { source: 'ZOMATO' };
+    
+    // Add date filter if provided
+    if (date) {
+      const targetDate = new Date(date);
+      const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+      query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    }
 
-    await newOrder.save();
+    // Fetch orders
+    const orders = await OrderModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(100);
 
     res.status(200).json({
       success: true,
-      message: 'Order received successfully',
-      orderId: newOrder._id,
-      orderNumber: newOrder.orderNumber
+      restaurant: restaurant.name,
+      date: date || 'all',
+      totalOrders: orders.length,
+      orders: orders.map(order => ({
+        order_id: order.orderNumber,
+        customer_name: order.customerName,
+        customer_phone: order.customerPhone,
+        items: order.items,
+        total_amount: order.totalAmount,
+        status: order.status,
+        payment_method: order.paymentMethod,
+        created_at: order.createdAt,
+        metadata: order.metadata
+      }))
     });
 
   } catch (error) {
     console.error('Webhook Error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to process webhook',
+      error: 'Failed to fetch order history',
       message: error.message
     });
   }
@@ -83,24 +78,13 @@ router.get('/:restaurantId/orders/history', (req, res) => {
     success: true,
     message: 'Webhook endpoint is active',
     restaurantId: req.params.restaurantId,
-    method: 'Use POST to send order data',
+    method: 'Use POST to fetch order history',
     endpoint: `POST /api/webhooks/${req.params.restaurantId}/orders/history`,
     expectedPayload: {
-      order_id: 'string',
-      customer_name: 'string',
-      customer_phone: 'string',
-      items: [
-        {
-          name: 'string',
-          quantity: 'number',
-          price: 'number'
-        }
-      ],
-      total_amount: 'number',
-      status: 'PENDING | CONFIRMED | PREPARING | READY | DELIVERED',
-      payment_method: 'CASH | ONLINE | CARD',
-      delivery_address: 'string',
-      special_instructions: 'string'
+      date: '2026-01-28 (optional, format: YYYY-MM-DD)'
+    },
+    example: {
+      date: '2026-01-28'
     }
   });
 });
