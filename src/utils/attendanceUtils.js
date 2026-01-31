@@ -8,10 +8,11 @@ class AttendanceUtils {
   static getCurrentDate() {
     // Use IST timezone for consistent date calculation
     const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-    const istTime = new Date(now.getTime() + istOffset);
+    // Convert to IST and get date components
+    const istTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
     
-    const today = new Date(istTime.getFullYear(), istTime.getMonth(), istTime.getDate());
+    // Create date in UTC but representing IST date
+    const today = new Date(Date.UTC(istTime.getFullYear(), istTime.getMonth(), istTime.getDate()));
     return today;
   }
 
