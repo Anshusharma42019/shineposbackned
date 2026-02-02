@@ -22,6 +22,11 @@ const moduleConfigSchema = new mongoose.Schema({
       enabled: { type: Boolean, default: true },
       updatedAt: Date,
       updatedBy: mongoose.Schema.Types.ObjectId
+    },
+    gst: {
+      enabled: { type: Boolean, default: true },
+      updatedAt: Date,
+      updatedBy: mongoose.Schema.Types.ObjectId
     }
   }
 }, {

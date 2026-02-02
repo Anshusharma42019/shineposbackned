@@ -136,6 +136,18 @@ const OrderSchema = new mongoose.Schema(
       },
     },
 
+    gst: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    sgst: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     totalAmount: {
       type: Number,
       required: true,

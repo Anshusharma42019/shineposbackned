@@ -27,7 +27,8 @@ router.get('/config', auth(), async (req, res) => {
         modules: {
           inventory: { enabled: true },
           orderTaking: { enabled: true },
-          kot: { enabled: true }
+          kot: { enabled: true },
+          gst: { enabled: true }
         }
       });
     }
@@ -59,7 +60,7 @@ router.put('/config', auth(), async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const validModules = ['inventory', 'orderTaking', 'kot'];
+    const validModules = ['inventory', 'orderTaking', 'kot', 'gst'];
     if (!validModules.includes(moduleName)) {
       return res.status(400).json({ error: 'Invalid module name' });
     }
@@ -73,7 +74,8 @@ router.put('/config', auth(), async (req, res) => {
         modules: {
           inventory: { enabled: true },
           orderTaking: { enabled: true },
-          kot: { enabled: true }
+          kot: { enabled: true },
+          gst: { enabled: true }
         }
       });
     }

@@ -291,13 +291,27 @@ const createOrder = async (req, res) => {
     
     let subtotal = totalAmount;
     let discountAmount = 0;
-    let finalTotal = totalAmount;
+    let afterDiscount = totalAmount;
 
     if (discount && discount.percentage > 0) {
       discountAmount = (subtotal * discount.percentage) / 100;
-      finalTotal = subtotal - discountAmount;
-      console.log('Discount calculated:', { percentage: discount.percentage, amount: discountAmount, finalTotal });
+      afterDiscount = subtotal - discountAmount;
+      console.log('Discount calculated:', { percentage: discount.percentage, amount: discountAmount, afterDiscount });
     }
+
+    // Check if GST module is enabled
+    const ModuleConfig = require('../models/ModuleConfig');
+    const moduleConfig = await ModuleConfig.findOne({ restaurantId: restaurant._id });
+    const isGSTEnabled = moduleConfig?.modules?.gst?.enabled ?? true;
+
+    // Calculate GST and SGST only if GST module is enabled
+    let gstAmount = 0;
+    let sgstAmount = 0;
+    if (isGSTEnabled) {
+      gstAmount = (afterDiscount * 2.5) / 100;
+      sgstAmount = (afterDiscount * 2.5) / 100;
+    }
+    const finalTotal = afterDiscount + gstAmount + sgstAmount;
 
     // Handle table assignment if provided
     let tableNumber = null;
@@ -335,6 +349,8 @@ const createOrder = async (req, res) => {
       orderNumber,
       items: orderItems,
       subtotal,
+      gst: gstAmount,
+      sgst: sgstAmount,
       totalAmount: finalTotal,
       customerName,
       customerPhone: customerPhone || "",
@@ -433,7 +449,7 @@ const getOrders = async (req, res) => {
       TenantModelFactory.getOrderModel(req.user.restaurantSlug);
 
     const orders = await OrderModel.find()
-      .select('orderNumber items extraItems subtotal discount totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails')
+      .select('orderNumber items extraItems subtotal discount gst sgst totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails')
       .lean()
       .sort({ createdAt: -1 });
 

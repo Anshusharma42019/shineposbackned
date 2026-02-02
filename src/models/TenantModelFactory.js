@@ -161,6 +161,16 @@ const createOrderSchema = () => new mongoose.Schema({
       default: null
     }
   },
+  gst: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  sgst: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   totalAmount: {
     type: Number,
     required: true
