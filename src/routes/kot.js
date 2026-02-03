@@ -9,13 +9,13 @@ const auth = require('../middleware/auth');
 router.post('/', auth, kotController.createKOT);
 
 // Get all KOTs with optional filters
-router.get('/', auth, kotController.getKOTs);
+router.get('/', auth(['RESTAURANT_ADMIN', 'MANAGER', 'CHEF']), kotController.getKOTs);
 
 // Get kitchen dashboard data
-router.get('/dashboard', auth, kotController.getKitchenDashboard);
+router.get('/dashboard', auth(['RESTAURANT_ADMIN', 'MANAGER', 'CHEF']), kotController.getKitchenDashboard);
 
 // Get KOT by ID
-router.get('/:id', auth, kotController.getKOTById);
+router.get('/:id', auth(['RESTAURANT_ADMIN', 'MANAGER', 'CHEF']), kotController.getKOTById);
 
 // Update KOT status
 router.patch('/:id/status', auth(['RESTAURANT_ADMIN', 'MANAGER', 'CHEF', 'WAITER']), kotController.updateKOTStatus);

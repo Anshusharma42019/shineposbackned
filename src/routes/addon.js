@@ -15,7 +15,7 @@ const router = express.Router();
 // Create Addon
 router.post(
     '/add/addon',
-    auth(['RESTAURANT_ADMIN']),
+    auth(['RESTAURANT_ADMIN', 'MANAGER']),
     tenantMiddleware,
     [
         body('name').trim().notEmpty().withMessage('Addon name is required'),
@@ -25,15 +25,15 @@ router.post(
 );
 
 // Get all addons
-router.get('/all/addon', auth(['RESTAURANT_ADMIN']), tenantMiddleware, getAddons);
+router.get('/all/addon', auth(['RESTAURANT_ADMIN', 'MANAGER' ,]), tenantMiddleware, getAddons);
 
 // Get addon by ID
-router.get('/get/addon/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, getAddonById);
+router.get('/get/addon/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, getAddonById);
 
 // Update addon
-router.put('/update/addon/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, updateAddon);
+router.put('/update/addon/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, updateAddon);
 
 // Delete addon
-router.delete('/delete/addon/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, deleteAddon);
+router.delete('/delete/addon/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, deleteAddon);
 
 module.exports = router;

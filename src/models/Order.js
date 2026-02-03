@@ -110,7 +110,6 @@ const OrderSchema = new mongoose.Schema(
 
     subtotal: {
       type: Number,
-      required: true,
       min: 0,
     },
 
@@ -128,11 +127,25 @@ const OrderSchema = new mongoose.Schema(
       reason: {
         type: String,
         trim: true,
+        default: "",
       },
       appliedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Staff",
+        default: null,
       },
+    },
+
+    gst: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    sgst: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     totalAmount: {
@@ -171,6 +184,22 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    tableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Table",
+    },
+
+    tableNumber: {
+      type: String,
+    },
+
+    mergedTables: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Table",
+      },
+    ],
 
     paymentDetails: {
       method: {

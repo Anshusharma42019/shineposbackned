@@ -22,7 +22,7 @@ router.post('/add/staff', auth(['RESTAURANT_ADMIN']), checkSubscription, trackUs
   body('name').trim().isLength({ min: 1 }).withMessage('Name is required'),
   body('role').isIn(['MANAGER', 'CHEF', 'WAITER', 'CASHIER']).withMessage('Valid role is required')
 ], createStaff);
-router.put('/update/staff/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), checkSubscription, tenantMiddleware, activityLogger('Staff'), updateStaff);
+router.put('/update/staff/:id', auth(['RESTAURANT_ADMIN']), checkSubscription, tenantMiddleware, activityLogger('Staff'), updateStaff);
 router.post('/add/:id/shifts', auth(['RESTAURANT_ADMIN', 'MANAGER']), checkSubscription, tenantMiddleware, activityLogger('Shift'), [
   body('date').isISO8601().withMessage('Valid date is required'),
   body('startTime').notEmpty().withMessage('Start time is required'),

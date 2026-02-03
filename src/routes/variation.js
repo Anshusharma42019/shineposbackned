@@ -16,7 +16,7 @@ const router = express.Router();
 // Create Variation
 router.post(
     '/add/variation',
-    auth(['RESTAURANT_ADMIN']),
+    auth(['RESTAURANT_ADMIN', 'MANAGER']),
     tenantMiddleware,
     activityLogger('Variation'),
     [
@@ -27,15 +27,15 @@ router.post(
 );
 
 // Get all variations
-router.get('/all/variation', auth(['RESTAURANT_ADMIN']), tenantMiddleware, activityLogger('Variation'), getVariations);
+router.get('/all/variation', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, activityLogger('Variation'), getVariations);
 
 // Get variation by ID
-router.get('/get/variation/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, activityLogger('Variation'), getVariationById);
+router.get('/get/variation/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, activityLogger('Variation'), getVariationById);
 
 // Update variation
-router.put('/update/variation/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, activityLogger('Variation'), updateVariation);
+router.put('/update/variation/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, activityLogger('Variation'), updateVariation);
 
 // Delete variation
-router.delete('/delete/variation/:id', auth(['RESTAURANT_ADMIN']), tenantMiddleware, activityLogger('Variation'), deleteVariation);
+router.delete('/delete/variation/:id', auth(['RESTAURANT_ADMIN', 'MANAGER']), tenantMiddleware, activityLogger('Variation'), deleteVariation);
 
 module.exports = router;
