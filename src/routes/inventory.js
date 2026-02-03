@@ -7,7 +7,22 @@ const {
   updateInventoryItem,
   restockItem,
   getLowStockItems,
-  deleteInventoryItem
+  deleteInventoryItem,
+  // Smart Inventory
+  createRecipe,
+  getRecipes,
+  processOrder,
+  createWastage,
+  getWastage,
+  createVendor,
+  getVendors,
+  createVendorPrice,
+  getVendorPrices,
+  getSalesData,
+  // Purchase Orders
+  createPurchaseOrder,
+  getPurchaseOrders,
+  updatePurchaseOrderStatus
 } = require("../controllers/inventoryController");
 const auth = require("../middleware/auth");
 const tenantMiddleware = require("../middleware/tenant");
@@ -77,5 +92,30 @@ router.delete(
   tenantMiddleware,
   deleteInventoryItem
 );
+
+// Smart Inventory Routes
+
+// Recipe Management
+router.get("/recipes", auth(["RESTAURANT_ADMIN", "STAFF"]), tenantMiddleware, getRecipes);
+router.post("/recipes", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, createRecipe);
+router.post("/process-order", auth(["RESTAURANT_ADMIN", "STAFF"]), tenantMiddleware, processOrder);
+
+// Wastage Tracking
+router.get("/wastage", auth(["RESTAURANT_ADMIN", "STAFF"]), tenantMiddleware, getWastage);
+router.post("/wastage", auth(["RESTAURANT_ADMIN", "STAFF"]), tenantMiddleware, createWastage);
+
+// Vendor Management
+router.get("/vendors", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, getVendors);
+router.post("/vendors", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, createVendor);
+router.get("/vendor-prices", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, getVendorPrices);
+router.post("/vendor-prices", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, createVendorPrice);
+
+// Analytics
+router.get("/sales-data", auth(["RESTAURANT_ADMIN", "STAFF"]), tenantMiddleware, getSalesData);
+
+// Purchase Orders
+router.get("/purchase-orders", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, getPurchaseOrders);
+router.post("/purchase-orders", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, createPurchaseOrder);
+router.patch("/purchase-orders/:id", auth(["RESTAURANT_ADMIN"]), tenantMiddleware, updatePurchaseOrderStatus);
 
 module.exports = router;

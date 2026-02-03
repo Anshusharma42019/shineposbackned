@@ -119,7 +119,25 @@ const exportReport = async (req, res) => {
   }
 };
 
+const getSalesData = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const sales = await OrderModel.find({
+      createdAt: { $gte: thirtyDaysAgo },
+      status: { $in: ['DELIVERED', 'PAID'] }
+    });
+    
+    res.json({ sales });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAdvancedAnalytics,
-  exportReport
+  exportReport,
+  getSalesData
 };

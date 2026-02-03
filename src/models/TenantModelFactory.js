@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const recipeSchema = require('./Recipe');
+const wastageSchema = require('./Wastage');
+const { vendorSchema, vendorPriceSchema } = require('./Vendor');
+const purchaseOrderSchema = require('./PurchaseOrder');
 
 // User Schema for tenant-specific collections
 const createUserSchema = () => new mongoose.Schema({
@@ -801,6 +805,51 @@ class TenantModelFactory {
     return this.models.get(modelKey);
   }
 
+  getRecipeModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_recipes`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('recipes', recipeSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
+  getWastageModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_wastage`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('wastage', wastageSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
+  getVendorModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_vendors`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('vendors', vendorSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
+  getVendorPriceModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_vendorprices`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('vendorprices', vendorPriceSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
+  getPurchaseOrderModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_purchaseorders`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      this.models.set(modelKey, connection.model('purchaseorders', purchaseOrderSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
   getTableModel(restaurantSlug) {
     const modelKey = `${restaurantSlug}_tables`;
     if (!this.models.has(modelKey)) {
@@ -835,6 +884,10 @@ class TenantModelFactory {
     this.getTableModel(restaurantSlug);
     this.getTableBookingModel(restaurantSlug);
     this.getAttendanceModel(restaurantSlug);
+    this.getRecipeModel(restaurantSlug);
+    this.getWastageModel(restaurantSlug);
+    this.getVendorModel(restaurantSlug);
+    this.getVendorPriceModel(restaurantSlug);
   }
 }
 

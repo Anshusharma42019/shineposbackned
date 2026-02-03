@@ -1,5 +1,200 @@
 const TenantModelFactory = require('../models/TenantModelFactory');
 
+// Recipe Management
+const createRecipe = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const RecipeModel = TenantModelFactory.getRecipeModel(restaurantSlug);
+    const recipe = new RecipeModel(req.body);
+    await recipe.save();
+    res.json({ recipe });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getRecipes = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const RecipeModel = TenantModelFactory.getRecipeModel(restaurantSlug);
+    const recipes = await RecipeModel.find().populate('menuItemId').populate('ingredients.inventoryItemId');
+    res.json({ recipes });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const processOrder = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const restaurantSlug = req.user.restaurantSlug;
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const RecipeModel = TenantModelFactory.getRecipeModel(restaurantSlug);
+    const InventoryModel = TenantModelFactory.getInventoryModel(restaurantSlug);
+    
+    const order = await OrderModel.findById(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    
+    for (const orderItem of order.items) {
+      const recipe = await RecipeModel.findOne({ menuItemId: orderItem.menuId });
+      if (recipe) {
+        for (const ingredient of recipe.ingredients) {
+          await InventoryModel.findByIdAndUpdate(
+            ingredient.inventoryItemId,
+            { $inc: { currentStock: -(ingredient.quantity * orderItem.quantity) } }
+          );
+        }
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Wastage Management
+const createWastage = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const WastageModel = TenantModelFactory.getWastageModel(restaurantSlug);
+    const InventoryModel = TenantModelFactory.getInventoryModel(restaurantSlug);
+    
+    const wastage = new WastageModel({ ...req.body, recordedBy: req.user.id });
+    await wastage.save();
+    
+    await InventoryModel.findByIdAndUpdate(
+      req.body.inventoryItemId,
+      { $inc: { currentStock: -req.body.quantity } }
+    );
+    
+    res.json({ wastage });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getWastage = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const WastageModel = TenantModelFactory.getWastageModel(restaurantSlug);
+    const wastage = await WastageModel.find().populate('inventoryItemId').sort({ date: -1 });
+    res.json({ wastage });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Vendor Management
+const createVendor = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const VendorModel = TenantModelFactory.getVendorModel(restaurantSlug);
+    const vendor = new VendorModel(req.body);
+    await vendor.save();
+    res.json({ vendor });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getVendors = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const VendorModel = TenantModelFactory.getVendorModel(restaurantSlug);
+    const vendors = await VendorModel.find({ isActive: true });
+    res.json({ vendors });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const createVendorPrice = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const VendorPriceModel = TenantModelFactory.getVendorPriceModel(restaurantSlug);
+    const vendorPrice = new VendorPriceModel(req.body);
+    await vendorPrice.save();
+    res.json({ vendorPrice });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getVendorPrices = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const VendorPriceModel = TenantModelFactory.getVendorPriceModel(restaurantSlug);
+    const prices = await VendorPriceModel.find()
+      .populate('vendorId')
+      .populate('inventoryItemId');
+    res.json({ prices });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Sales Analytics for Prediction
+const getSalesData = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const sales = await OrderModel.find({
+      createdAt: { $gte: thirtyDaysAgo },
+      status: { $in: ['DELIVERED', 'PAID'] }
+    });
+    
+    res.json({ sales });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Purchase Order Management
+const createPurchaseOrder = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const PurchaseOrderModel = TenantModelFactory.getPurchaseOrderModel(restaurantSlug);
+    const purchaseOrder = new PurchaseOrderModel({ ...req.body, createdBy: req.user.id });
+    await purchaseOrder.save();
+    res.json({ purchaseOrder });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getPurchaseOrders = async (req, res) => {
+  try {
+    const restaurantSlug = req.user.restaurantSlug;
+    const PurchaseOrderModel = TenantModelFactory.getPurchaseOrderModel(restaurantSlug);
+    const orders = await PurchaseOrderModel.find().sort({ createdAt: -1 });
+    res.json({ orders });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updatePurchaseOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const restaurantSlug = req.user.restaurantSlug;
+    const PurchaseOrderModel = TenantModelFactory.getPurchaseOrderModel(restaurantSlug);
+    
+    const order = await PurchaseOrderModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    
+    res.json({ order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const createInventoryItem = async (req, res) => {
   try {
     const { name, category, currentStock, minStock, unit, costPerUnit, supplier } = req.body;
@@ -132,5 +327,20 @@ module.exports = {
   updateInventoryItem,
   restockItem,
   getLowStockItems,
-  deleteInventoryItem
+  deleteInventoryItem,
+  // Smart Inventory
+  createRecipe,
+  getRecipes,
+  processOrder,
+  createWastage,
+  getWastage,
+  createVendor,
+  getVendors,
+  createVendorPrice,
+  getVendorPrices,
+  getSalesData,
+  // Purchase Orders
+  createPurchaseOrder,
+  getPurchaseOrders,
+  updatePurchaseOrderStatus
 };
