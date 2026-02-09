@@ -114,30 +114,56 @@ const createOrderSchema = () => new mongoose.Schema({
       name: String,
       price: Number
     }],
-    itemTotal: Number
+    itemTotal: Number,
+    status: {
+      type: String,
+      enum: ['PENDING', 'PREPARING', 'READY', 'SERVED'],
+      default: 'PENDING'
+    },
+    timeToPrepare: {
+      type: Number,
+      default: 15
+    },
+    startedAt: Date
   }],
   // extraItems
   extraItems: [{
+    menuId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true
+    },
     name: {
       type: String,
       required: true,
       trim: true,
     },
+    basePrice: Number,
     quantity: {
       type: Number,
       required: true,
       min: 1,
     },
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
+    variation: {
+      variationId: mongoose.Schema.Types.ObjectId,
+      name: String,
+      price: Number
     },
-    total: {
-      type: Number,
-      required: true,
-      min: 0,
+    addons: [{
+      addonId: mongoose.Schema.Types.ObjectId,
+      name: String,
+      price: Number
+    }],
+    itemTotal: Number,
+    status: {
+      type: String,
+      enum: ['PENDING', 'PREPARING', 'READY', 'SERVED'],
+      default: 'PENDING'
     },
+    timeToPrepare: {
+      type: Number,
+      default: 15
+    },
+    startedAt: Date
   }],
   subtotal: {
     type: Number,
@@ -191,6 +217,26 @@ const createOrderSchema = () => new mongoose.Schema({
   },
   customerName: String,
   customerPhone: String,
+  hasSplitBill: {
+    type: Boolean,
+    default: false
+  },
+  splitBillId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'splitbills'
+  },
+  splitBillSummary: [{
+    splitNumber: Number,
+    customerName: String,
+    totalAmount: Number,
+    paymentStatus: {
+      type: String,
+      enum: ['PENDING', 'PAID'],
+      default: 'PENDING'
+    },
+    paymentMethod: String,
+    paidAt: Date
+  }],
   paymentDetails: {
     method: String,
     amount: Number,
@@ -879,6 +925,62 @@ class TenantModelFactory {
       this.models.set(modelKey, connection.model('tablebookings', tableBookingSchema));
     }
     return this.models.get(modelKey);
+  }
+
+  getSplitBillModel(restaurantSlug) {
+    const modelKey = `${restaurantSlug}_splitbills`;
+    if (!this.models.has(modelKey)) {
+      const connection = this.getTenantConnection(restaurantSlug);
+      const splitBillSchema = new mongoose.Schema({
+        originalOrderId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'orders',
+          required: true
+        },
+        splits: [{
+          splitNumber: { type: Number, required: true },
+          items: [{
+            menuId: mongoose.Schema.Types.ObjectId,
+            name: String,
+            quantity: Number,
+            itemTotal: Number
+          }],
+          subtotal: { type: Number, required: true },
+          gst: { type: Number, default: 0 },
+          sgst: { type: Number, default: 0 },
+          totalAmount: { type: Number, required: true },
+          paymentStatus: {
+            type: String,
+            enum: ['PENDING', 'PAID'],
+            default: 'PENDING'
+          },
+          paymentDetails: {
+            method: { type: String, enum: ['CASH', 'CARD', 'UPI', 'ONLINE'] },
+            transactionId: String,
+            paidAt: Date
+          },
+          customerName: String
+        }],
+        status: {
+          type: String,
+          enum: ['ACTIVE', 'COMPLETED'],
+          default: 'ACTIVE'
+        }
+      }, { timestamps: true });
+      this.models.set(modelKey, connection.model('splitbills', splitBillSchema));
+    }
+    return this.models.get(modelKey);
+  }
+
+  getModel(restaurantSlug, modelName) {
+    const methodMap = {
+      'Order': 'getOrderModel',
+      'SplitBill': 'getSplitBillModel',
+      'Staff': 'getStaffModel',
+      'Menu': 'getMenuModel'
+    };
+    const method = methodMap[modelName];
+    return method ? this[method](restaurantSlug) : null;
   }
 
   async createTenantDatabase(restaurantSlug) {

@@ -117,7 +117,8 @@ const addItemsToOrder = async (req, res) => {
         variation: finalVariation,
         addons: finalAddons,
         itemTotal,
-        status: "PENDING" // New items are always pending
+        status: "PENDING",
+        timeToPrepare: menuItem.timeToPrepare || 15
       };
 
       newOrderItems.push(newItem);
@@ -127,20 +128,33 @@ const addItemsToOrder = async (req, res) => {
         quantity,
         variation: finalVariation,
         addons: finalAddons,
-        status: "PENDING"
+        status: "PENDING",
+        timeToPrepare: menuItem.timeToPrepare || 15
       });
     }
 
-    // Add new items to existing order
-    existingOrder.items.push(...newOrderItems);
+    // Add new items to existing order as extra items
+    existingOrder.extraItems.push(...newOrderItems);
     existingOrder.totalAmount += totalAmount;
+    
+    // Reset order status if it was DELIVERED or READY
+    if (existingOrder.status === 'DELIVERED' || existingOrder.status === 'READY') {
+      existingOrder.status = 'PREPARING';
+    }
+    
     await existingOrder.save();
 
     // Add new items to existing KOT (reuse same KOT)
     existingKOT.extraItems.push(...newKOTItems);
+    
+    // Reset KOT status if needed
+    if (existingKOT.status === 'DELIVERED' || existingKOT.status === 'READY') {
+      existingKOT.status = 'PREPARING';
+    }
+    
     await existingKOT.save();
 
-    console.log('Items added to existing order:', existingOrder.orderNumber);
+    console.log('Items added to existing order as extra items:', existingOrder.orderNumber);
     console.log('Items added to existing KOT:', existingKOT.kotNumber);
 
     res.json({
@@ -426,9 +440,25 @@ const getOrders = async (req, res) => {
       TenantModelFactory.getOrderModel(req.user.restaurantSlug);
 
     const orders = await OrderModel.find()
-      .select('orderNumber items extraItems subtotal discount gst sgst totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails')
+      .select('orderNumber items extraItems subtotal discount gst sgst totalAmount customerName customerPhone tableId tableNumber mergedTables status priority createdAt paymentDetails hasSplitBill splitBillId splitBillSummary')
       .lean()
       .sort({ createdAt: -1 });
+
+    // Ensure items have status field from KOT
+    orders.forEach(order => {
+      if (order.items) {
+        order.items = order.items.map(item => ({
+          ...item,
+          status: item.status || 'PENDING'
+        }));
+      }
+      if (order.extraItems) {
+        order.extraItems = order.extraItems.map(item => ({
+          ...item,
+          status: item.status || 'PENDING'
+        }));
+      }
+    });
 
     res.json({ orders });
   } catch (error) {
@@ -721,6 +751,7 @@ const updateItemStatus = async (req, res) => {
     }
 
     console.log('Item status updated:', status, 'for item index:', itemIndex);
+    console.log('Order item status synced to:', status);
 
     res.json({
       message: "Item status updated successfully",

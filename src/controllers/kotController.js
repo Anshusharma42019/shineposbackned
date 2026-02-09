@@ -277,25 +277,51 @@ const deleteKOT = async (req, res) => {
 const updateKOTItemStatus = async (req, res) => {
   try {
     const { id, itemIndex } = req.params;
-    const { status } = req.body;
+    const { status, isExtraItem } = req.body;
     const restaurantSlug = req.user.restaurantSlug;
     const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
     
     const kot = await KOTModel.findById(id);
     if (!kot) {
       return res.status(404).json({ error: 'KOT not found' });
     }
     
-    if (!kot.items[itemIndex]) {
+    const itemArray = isExtraItem ? kot.extraItems : kot.items;
+    if (!itemArray || !itemArray[itemIndex]) {
       return res.status(404).json({ error: 'Item not found' });
     }
     
-    kot.items[itemIndex].status = status;
-    if (status === 'PREPARING' && !kot.items[itemIndex].startedAt) {
-      kot.items[itemIndex].startedAt = new Date();
+    itemArray[itemIndex].status = status;
+    if (status === 'PREPARING' && !itemArray[itemIndex].startedAt) {
+      itemArray[itemIndex].startedAt = new Date();
     }
-    kot.markModified('items');
+    
+    if (isExtraItem) {
+      kot.markModified('extraItems');
+    } else {
+      kot.markModified('items');
+    }
     await kot.save();
+
+    // Sync item status back to order
+    try {
+      const order = await OrderModel.findById(kot.orderId);
+      if (order) {
+        const orderItemArray = isExtraItem ? order.extraItems : order.items;
+        if (orderItemArray && orderItemArray[itemIndex]) {
+          orderItemArray[itemIndex].status = status;
+          if (isExtraItem) {
+            order.markModified('extraItems');
+          } else {
+            order.markModified('items');
+          }
+          await order.save();
+        }
+      }
+    } catch (orderError) {
+      console.error('Order item status sync error:', orderError);
+    }
 
     res.json({ message: 'Item status updated successfully', kot });
   } catch (error) {
