@@ -261,16 +261,16 @@ const mergeTables = async (req, res) => {
             mergedGuestCount: guestCount
         });
         const savedMergedTable = await mergedTable.save();
-        console.log('Merged table saved:', savedMergedTable);
+        
         
         // Update each original table individually by fetching and saving
-        console.log('Updating original tables to OCCUPIED:', tableIds);
+        
         for (const tableId of tableIds) {
             const table = await Table.findById(tableId);
             if (table) {
                 table.status = 'OCCUPIED';
                 await table.save();
-                console.log('Updated table:', table.tableNumber, 'to OCCUPIED');
+                
             }
         }
         

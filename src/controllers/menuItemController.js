@@ -3,9 +3,6 @@ const Restaurant = require('../models/Restaurant');
 
 const createMenuItem = async (req, res) => {
     try {
-        console.log('req.tenantModels:', req.tenantModels);
-        console.log('req.user:', req.user);
-        
         if (!req.tenantModels) {
             return res.status(500).json({ error: 'Tenant models not initialized' });
         }

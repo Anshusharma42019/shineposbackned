@@ -6,9 +6,9 @@ const createStaff = async (req, res) => {
     const { email, password, name, role, permissions, phone, hourlyRate, overtimeRate, shiftSchedule } = req.body;
     const restaurantSlug = req.user.restaurantSlug;
     
-    console.log('=== CREATE STAFF DEBUG ===');
-    console.log('Request body:', req.body);
-    console.log('Extracted shiftSchedule:', shiftSchedule);
+    
+    
+    
     
     if (!restaurantSlug) {
       return res.status(400).json({ error: 'Restaurant slug is required' });
@@ -43,8 +43,6 @@ const createStaff = async (req, res) => {
       }
     };
     
-    console.log('Staff data to save:', JSON.stringify(staffData, null, 2));
-    
     const staff = new StaffModel(staffData);
     await staff.save();
     
@@ -57,8 +55,6 @@ const createStaff = async (req, res) => {
     }
     
     const finalStaff = await StaffModel.findById(staff._id);
-    
-    console.log('Saved staff (full):', JSON.stringify(staff.toObject(), null, 2));
     
     const { password: _, ...responseData } = staff.toObject();
     res.status(201).json({ message: 'Staff member created successfully', staff: responseData });
@@ -76,8 +72,7 @@ const getStaff = async (req, res) => {
     const StaffModel = TenantModelFactory.getStaffModel(restaurantSlug);
     
     const staff = await StaffModel.find({ isActive: true }).select('-password').sort({ createdAt: -1 });
-    console.log('=== GET STAFF DEBUG ===');
-    console.log('Staff with shifts:', staff.map(s => ({ name: s.name, shiftSchedule: s.shiftSchedule })));
+    
     res.json({ staff });
   } catch (error) {
     console.error('Get staff error:', error);
@@ -91,9 +86,9 @@ const updateStaff = async (req, res) => {
     const restaurantSlug = req.user.restaurantSlug;
     const StaffModel = TenantModelFactory.getStaffModel(restaurantSlug);
     
-    console.log('=== UPDATE STAFF DEBUG ===');
-    console.log('Request body:', req.body);
-    console.log('Staff ID:', id);
+    
+    
+    
     
     const staff = await StaffModel.findById(id);
     if (!staff) {
@@ -105,8 +100,8 @@ const updateStaff = async (req, res) => {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
     
-    console.log('Update data:', updateData);
-    console.log('Before update - staff shiftSchedule:', staff.shiftSchedule);
+    
+    
     
     Object.assign(staff, updateData);
     await staff.save();
@@ -120,9 +115,6 @@ const updateStaff = async (req, res) => {
     }
     
     const finalStaff = await StaffModel.findById(staff._id);
-    
-    console.log('After update - staff shiftSchedule:', finalStaff.shiftSchedule);
-    console.log('Updated staff:', finalStaff.toObject());
     
     const { password: _, ...staffData } = finalStaff.toObject();
     res.json({ message: 'Staff member updated successfully', staff: staffData });

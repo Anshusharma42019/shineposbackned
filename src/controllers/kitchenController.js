@@ -4,7 +4,7 @@ const kotPrinter = require('../utils/kotPrinter');
 const getKitchenOrders = async (req, res) => {
   try {
     const restaurantSlug = req.user.restaurantSlug;
-    console.log('Fetching kitchen orders for restaurant:', restaurantSlug);
+    
     
     const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
     const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
@@ -16,9 +16,6 @@ const getKitchenOrders = async (req, res) => {
     
     const kots = await KOTModel.find()
       .sort({ priority: -1, createdAt: -1 });
-    
-    console.log('Found orders:', orders.length, 'Found KOTs:', kots.length);
-    console.log('KOT statuses:', kots.map(k => ({ id: k._id, status: k.status })));
     
     res.json({ orders, kots });
   } catch (error) {

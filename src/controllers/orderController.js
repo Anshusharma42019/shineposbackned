@@ -105,7 +105,6 @@ const addItemsToOrder = async (req, res) => {
 
       if (existingItemIndex !== -1) {
         // Same item with SERVED status exists - add as new line item with PENDING status
-        console.log('Same item with SERVED status found, adding as new line item');
       }
 
       // Always add as new line item (requirement: add new line item)
@@ -118,7 +117,10 @@ const addItemsToOrder = async (req, res) => {
         addons: finalAddons,
         itemTotal,
         status: "PENDING",
-        timeToPrepare: menuItem.timeToPrepare || 15
+        timeToPrepare: menuItem.timeToPrepare || 15,
+        startedAt: null,
+        readyAt: null,
+        actualPrepTime: null
       };
 
       newOrderItems.push(newItem);
@@ -153,9 +155,6 @@ const addItemsToOrder = async (req, res) => {
     }
     
     await existingKOT.save();
-
-    console.log('Items added to existing order as extra items:', existingOrder.orderNumber);
-    console.log('Items added to existing KOT:', existingKOT.kotNumber);
 
     res.json({
       message: "Items added to existing order successfully",
@@ -287,7 +286,10 @@ const createOrder = async (req, res) => {
         addons: finalAddons,
         itemTotal,
         status: "PENDING",
-        timeToPrepare: timeToPrepare || menuItem.timeToPrepare || 15
+        timeToPrepare: timeToPrepare || menuItem.timeToPrepare || 15,
+        startedAt: null,
+        readyAt: null,
+        actualPrepTime: null
       });
     }
 
@@ -386,7 +388,10 @@ const createOrder = async (req, res) => {
           variation: item.variation,
           addons: item.addons,
           status: "PENDING",
-          timeToPrepare: item.timeToPrepare || savedOrder.items.find(i => i.menuId.toString() === item.menuId.toString())?.timeToPrepare || 15
+          timeToPrepare: item.timeToPrepare || savedOrder.items.find(i => i.menuId.toString() === item.menuId.toString())?.timeToPrepare || 15,
+          startedAt: null,
+          readyAt: null,
+          actualPrepTime: null
         })),
         customerName: savedOrder.customerName,
         tableNumber: savedOrder.tableNumber
@@ -475,8 +480,6 @@ const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    console.log('UPDATE ORDER STATUS - ID:', id, 'Status:', status);
-
     const allowedStatuses = [
       "PENDING",
       "PREPARING",
@@ -499,8 +502,6 @@ const updateOrderStatus = async (req, res) => {
 
     order.status = status;
     const savedOrder = await order.save();
-    
-    console.log('Order status updated to:', savedOrder.status);
 
     // Update table status when order is completed or cancelled
     if ((status === "CANCELLED" || status === "PAID") && order.tableId) {
@@ -519,12 +520,10 @@ const updateOrderStatus = async (req, res) => {
             }
           }
           await TableModel.findByIdAndDelete(table._id);
-          console.log('Merged table deleted and original tables restored to AVAILABLE');
         } else {
           // Regular table - just set to available
           table.status = "AVAILABLE";
           await table.save();
-          console.log('Table status updated to AVAILABLE');
         }
       }
     }
@@ -537,7 +536,6 @@ const updateOrderStatus = async (req, res) => {
         kot.status = status;
         await kot.save();
       }
-      console.log('KOT status synced to:', status);
     } catch (kotError) {
       console.error('KOT status sync error:', kotError);
     }
@@ -608,12 +606,10 @@ const processPayment = async (req, res) => {
             }
           }
           await TableModel.findByIdAndDelete(table._id);
-          console.log('Merged table deleted and original tables restored after payment');
         } else {
           // Regular table - set to available
           table.status = 'AVAILABLE';
           await table.save();
-          console.log('Table status updated to AVAILABLE after payment');
         }
       }
     }
@@ -741,17 +737,40 @@ const updateItemStatus = async (req, res) => {
     }
 
     order.items[itemIndex].status = status;
+    
+    // Track preparation time
+    if (status === 'PREPARING') {
+      if (!order.items[itemIndex].startedAt) {
+        order.items[itemIndex].startedAt = new Date();
+      }
+    }
+    if (status === 'READY') {
+      if (!order.items[itemIndex].startedAt) {
+        order.items[itemIndex].startedAt = new Date(Date.now() - 60000); // Default 1 min ago if missing
+      }
+      order.items[itemIndex].readyAt = new Date();
+      const seconds = Math.round((order.items[itemIndex].readyAt - order.items[itemIndex].startedAt) / 1000);
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      order.items[itemIndex].actualPrepTime = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
     await order.save();
 
     // Update corresponding item in KOT
     const kot = await KOTModel.findOne({ orderId });
     if (kot && kot.items[itemIndex]) {
       kot.items[itemIndex].status = status;
+      if (status === 'PREPARING' && order.items[itemIndex].startedAt) {
+        kot.items[itemIndex].startedAt = order.items[itemIndex].startedAt;
+      }
+      if (status === 'READY' && order.items[itemIndex].readyAt) {
+        kot.items[itemIndex].readyAt = order.items[itemIndex].readyAt;
+        kot.items[itemIndex].actualPrepTime = order.items[itemIndex].actualPrepTime;
+      }
+      kot.markModified('items');
       await kot.save();
     }
-
-    console.log('Item status updated:', status, 'for item index:', itemIndex);
-    console.log('Order item status synced to:', status);
 
     res.json({
       message: "Item status updated successfully",
@@ -772,9 +791,6 @@ const addExtraItemsToOrder = async (req, res) => {
     const { orderId } = req.params;
     const { extraItems } = req.body;
 
-    console.log('Adding extra items to order:', orderId);
-    console.log('Extra items data:', JSON.stringify(extraItems, null, 2));
-
     if (!extraItems || !extraItems.length) {
       return res.status(400).json({ error: "Extra items are required" });
     }
@@ -783,8 +799,6 @@ const addExtraItemsToOrder = async (req, res) => {
     if (!restaurantSlug) {
       return res.status(400).json({ error: "Restaurant slug not found" });
     }
-
-    console.log('Restaurant slug:', restaurantSlug);
 
     const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
     const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
@@ -864,7 +878,10 @@ const addExtraItemsToOrder = async (req, res) => {
         variation: finalVariation,
         addons: finalAddons,
         itemTotal,
-        status: "PENDING"
+        status: "PENDING",
+        startedAt: null,
+        readyAt: null,
+        actualPrepTime: null
       };
 
       newExtraItems.push(newExtraItem);
@@ -925,11 +942,37 @@ const updateExtraItemStatus = async (req, res) => {
     }
 
     order.extraItems[itemIndex].status = status;
+    
+    // Track preparation time
+    if (status === 'PREPARING') {
+      if (!order.extraItems[itemIndex].startedAt) {
+        order.extraItems[itemIndex].startedAt = new Date();
+      }
+    }
+    if (status === 'READY') {
+      if (!order.extraItems[itemIndex].startedAt) {
+        order.extraItems[itemIndex].startedAt = new Date(Date.now() - 60000); // Default 1 min ago if missing
+      }
+      order.extraItems[itemIndex].readyAt = new Date();
+      const seconds = Math.round((order.extraItems[itemIndex].readyAt - order.extraItems[itemIndex].startedAt) / 1000);
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      order.extraItems[itemIndex].actualPrepTime = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
     await order.save();
 
     const kot = await KOTModel.findOne({ orderId });
     if (kot && kot.extraItems[itemIndex]) {
       kot.extraItems[itemIndex].status = status;
+      if (status === 'PREPARING' && order.extraItems[itemIndex].startedAt) {
+        kot.extraItems[itemIndex].startedAt = order.extraItems[itemIndex].startedAt;
+      }
+      if (status === 'READY' && order.extraItems[itemIndex].readyAt) {
+        kot.extraItems[itemIndex].readyAt = order.extraItems[itemIndex].readyAt;
+        kot.extraItems[itemIndex].actualPrepTime = order.extraItems[itemIndex].actualPrepTime;
+      }
+      kot.markModified('extraItems');
       await kot.save();
     }
 

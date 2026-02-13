@@ -22,8 +22,6 @@ const fixExtraItemsField = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
     
-    console.log('Fixed extraItems field for order:', order.orderNumber);
-    
     res.json({
       message: "ExtraItems field fixed successfully",
       order

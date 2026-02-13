@@ -88,27 +88,18 @@ const updateKOTStatus = async (req, res) => {
     const restaurantSlug = req.user.restaurantSlug;
     const KOTModel = TenantModelFactory.getKOTModel(restaurantSlug);
     
-    console.log('UPDATE KOT STATUS - ID:', id, 'Status:', status);
-    
     const allowedStatuses = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
     if (!allowedStatuses.includes(status)) {
-      console.log('Invalid KOT status:', status);
       return res.status(400).json({ error: 'Invalid KOT status' });
     }
     
     const kot = await KOTModel.findById(id);
     if (!kot) {
-      console.log('KOT not found');
       return res.status(404).json({ error: 'KOT not found' });
     }
     
-    console.log('KOT found, current status:', kot.status);
-    console.log('Attempting to change to:', status);
-    
     kot.status = status;
     const savedKOT = await kot.save();
-    
-    console.log('KOT after save:', savedKOT.status);
 
     // Update associated order status
     try {
@@ -117,7 +108,6 @@ const updateKOTStatus = async (req, res) => {
       if (order) {
         order.status = status;
         await order.save();
-        console.log('Order status synced to:', status);
       }
     } catch (orderError) {
       console.error('Order status sync error:', orderError);
@@ -293,8 +283,20 @@ const updateKOTItemStatus = async (req, res) => {
     }
     
     itemArray[itemIndex].status = status;
-    if (status === 'PREPARING' && !itemArray[itemIndex].startedAt) {
-      itemArray[itemIndex].startedAt = new Date();
+    if (status === 'PREPARING') {
+      if (!itemArray[itemIndex].startedAt) {
+        itemArray[itemIndex].startedAt = new Date();
+      }
+    }
+    if (status === 'READY') {
+      if (!itemArray[itemIndex].startedAt) {
+        itemArray[itemIndex].startedAt = new Date(Date.now() - 60000);
+      }
+      itemArray[itemIndex].readyAt = new Date();
+      const seconds = Math.round((itemArray[itemIndex].readyAt - itemArray[itemIndex].startedAt) / 1000);
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      itemArray[itemIndex].actualPrepTime = `${mins}:${secs.toString().padStart(2, '0')}`;
     }
     
     if (isExtraItem) {
@@ -304,13 +306,20 @@ const updateKOTItemStatus = async (req, res) => {
     }
     await kot.save();
 
-    // Sync item status back to order
+    // Sync to order
     try {
       const order = await OrderModel.findById(kot.orderId);
       if (order) {
         const orderItemArray = isExtraItem ? order.extraItems : order.items;
         if (orderItemArray && orderItemArray[itemIndex]) {
           orderItemArray[itemIndex].status = status;
+          if (itemArray[itemIndex].startedAt) {
+            orderItemArray[itemIndex].startedAt = itemArray[itemIndex].startedAt;
+          }
+          if (itemArray[itemIndex].readyAt) {
+            orderItemArray[itemIndex].readyAt = itemArray[itemIndex].readyAt;
+            orderItemArray[itemIndex].actualPrepTime = itemArray[itemIndex].actualPrepTime;
+          }
           if (isExtraItem) {
             order.markModified('extraItems');
           } else {
@@ -320,13 +329,13 @@ const updateKOTItemStatus = async (req, res) => {
         }
       }
     } catch (orderError) {
-      console.error('Order item status sync error:', orderError);
+      // Silent fail for order sync
     }
 
     res.json({ message: 'Item status updated successfully', kot });
   } catch (error) {
     console.error('Update KOT item status error:', error);
-    res.status(500).json({ error: 'Failed to update item status' });
+    res.status(500).json({ error: 'Failed to update item status', details: error.message });
   }
 };
 

@@ -2,8 +2,8 @@ const cloudinary = require('../config/cloudinary');
 
 const uploadMedia = async (req, res) => {
   try {
-    console.log('Upload request received');
-    console.log('File:', req.file ? req.file.originalname : 'No file');
+    
+    
     
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -12,7 +12,7 @@ const uploadMedia = async (req, res) => {
     const isVideo = req.file.mimetype.startsWith('video/');
     const restaurantSlug = req.user?.restaurantSlug || 'default';
     
-    console.log('Starting Cloudinary upload...');
+    
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
@@ -24,7 +24,7 @@ const uploadMedia = async (req, res) => {
             console.error('Cloudinary error:', error);
             reject(error);
           } else {
-            console.log('Cloudinary success:', result.secure_url);
+            
             resolve(result);
           }
         }

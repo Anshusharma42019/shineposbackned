@@ -51,7 +51,9 @@ const KOTSchema = new mongoose.Schema({
       default: 15,
       min: 1
     },
-    startedAt: Date
+    startedAt: Date,
+    readyAt: Date,
+    actualPrepTime: String
   }],
   
   status: {
@@ -100,7 +102,9 @@ const KOTSchema = new mongoose.Schema({
       default: 15,
       min: 1
     },
-    startedAt: Date
+    startedAt: Date,
+    readyAt: Date,
+    actualPrepTime: String
   }],
   
   printedAt: Date,

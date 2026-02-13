@@ -70,22 +70,14 @@ const getDashboardStats = async (req, res) => {
     });
 
     // Category breakdown
-    console.log('=== CATEGORY BREAKDOWN DEBUG ===');
-    console.log('Categories:', categories);
-    console.log('Menu Items sample:', menuItems.slice(0, 2));
-    console.log('Filtered Orders sample:', filteredOrders.slice(0, 1));
-    
     const categoryMap = {};
     categories.forEach(cat => {
       categoryMap[cat._id.toString()] = cat.name;
     });
-    console.log('Category Map:', categoryMap);
 
     const categoryBreakdown = {};
     filteredOrders.forEach(order => {
       order.items?.forEach(item => {
-        console.log('Processing item:', { menuId: item.menuId, name: item.name, totalPrice: item.totalPrice });
-        
         // Try to find menu item by ID or name
         let menuItem = menuItems.find(m => m._id.toString() === item.menuId?.toString());
         
@@ -94,27 +86,21 @@ const getDashboardStats = async (req, res) => {
           menuItem = menuItems.find(m => m.name === item.name);
         }
         
-        console.log('Found menu item:', menuItem);
-        
         if (menuItem && menuItem.category) {
           const catName = categoryMap[menuItem.category.toString()] || 'Other';
           if (!categoryBreakdown[catName]) {
             categoryBreakdown[catName] = 0;
           }
           categoryBreakdown[catName] += item.totalPrice || item.basePrice * item.quantity || 0;
-          console.log(`Added ${item.totalPrice || 0} to ${catName}`);
         } else {
           // If no category found, add to "Other"
           if (!categoryBreakdown['Other']) {
             categoryBreakdown['Other'] = 0;
           }
           categoryBreakdown['Other'] += item.totalPrice || item.basePrice * item.quantity || 0;
-          console.log('Added to Other category');
         }
       });
     });
-    
-    console.log('Final Category Breakdown:', categoryBreakdown);
 
     const categoryData = Object.entries(categoryBreakdown).map(([category, amount]) => ({
       category,

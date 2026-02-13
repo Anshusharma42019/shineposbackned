@@ -124,7 +124,9 @@ const createOrderSchema = () => new mongoose.Schema({
       type: Number,
       default: 15
     },
-    startedAt: Date
+    startedAt: Date,
+    readyAt: Date,
+    actualPrepTime: String
   }],
   // extraItems
   extraItems: [{
@@ -163,7 +165,9 @@ const createOrderSchema = () => new mongoose.Schema({
       type: Number,
       default: 15
     },
-    startedAt: Date
+    startedAt: Date,
+    readyAt: Date,
+    actualPrepTime: String
   }],
   subtotal: {
     type: Number,
@@ -619,7 +623,9 @@ const createKOTSchema = () => {
         default: 15,
         min: 1
       },
-      startedAt: Date
+      startedAt: Date,
+      readyAt: Date,
+      actualPrepTime: String
     }],
     extraItems: [{
       menuId: {
@@ -653,7 +659,9 @@ const createKOTSchema = () => {
         default: 15,
         min: 1
       },
-      startedAt: Date
+      startedAt: Date,
+      readyAt: Date,
+      actualPrepTime: String
     }],
     status: {
       type: String,

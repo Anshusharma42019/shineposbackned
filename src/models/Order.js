@@ -84,15 +84,30 @@ const OrderSchema = new mongoose.Schema(
           default: 15,
           min: 1
         },
+
+        // ACTUAL PREPARATION TRACKING
+        startedAt: Date,
+        readyAt: Date,
+        actualPrepTime: String,
       },
     ],
     
     extraItems: [
       {
+        menuId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Menu",
+        },
+
         name: {
           type: String,
           required: true,
           trim: true,
+        },
+
+        basePrice: {
+          type: Number,
+          min: 0,
         },
 
         quantity: {
@@ -101,17 +116,54 @@ const OrderSchema = new mongoose.Schema(
           min: 1,
         },
 
-        price: {
+        variation: {
+          variationId: {
+            type: mongoose.Schema.Types.ObjectId,
+          },
+          name: {
+            type: String,
+          },
+          price: {
+            type: Number,
+            min: 0,
+          },
+        },
+
+        addons: [
+          {
+            addonId: {
+              type: mongoose.Schema.Types.ObjectId,
+            },
+            name: {
+              type: String,
+            },
+            price: {
+              type: Number,
+              min: 0,
+            },
+          },
+        ],
+
+        itemTotal: {
           type: Number,
-          required: true,
           min: 0,
         },
 
-        total: {
-          type: Number,
-          required: true,
-          min: 0,
+        status: {
+          type: String,
+          enum: ["PENDING", "PREPARING", "READY", "SERVED"],
+          default: "PENDING",
         },
+
+        timeToPrepare: {
+          type: Number,
+          default: 15,
+          min: 1
+        },
+
+        startedAt: Date,
+        readyAt: Date,
+        actualPrepTime: String,
       },
     ],
 
