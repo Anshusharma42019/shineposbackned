@@ -156,6 +156,98 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+const getPeakHours = async (req, res) => {
+  try {
+    const restaurantSlug = req.user?.restaurantSlug;
+    if (!restaurantSlug) {
+      return res.status(400).json({ error: 'Restaurant slug not found' });
+    }
+
+    const OrderModel = TenantModelFactory.getOrderModel(restaurantSlug);
+    
+    // Get orders from last 30 days for better analysis
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const orders = await OrderModel.find({ 
+      createdAt: { $gte: thirtyDaysAgo },
+      status: { $in: ['COMPLETE', 'SERVED'] }
+    }).lean();
+
+    // Hourly analysis
+    const hourlyData = Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      orders: 0,
+      revenue: 0,
+      totalWaitTime: 0,
+      count: 0
+    }));
+
+    // Weekly analysis
+    const weeklyData = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => ({
+      day,
+      dayIndex: index,
+      orders: 0,
+      revenue: 0,
+      totalWaitTime: 0,
+      count: 0
+    }));
+
+    orders.forEach(order => {
+      const orderDate = new Date(order.createdAt);
+      const hour = orderDate.getHours();
+      const dayIndex = (orderDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+      
+      // Hourly data
+      hourlyData[hour].orders++;
+      hourlyData[hour].revenue += order.totalAmount || 0;
+      
+      // Weekly data
+      weeklyData[dayIndex].orders++;
+      weeklyData[dayIndex].revenue += order.totalAmount || 0;
+      
+      // Calculate wait time using updatedAt (when order was completed)
+      const waitTime = Math.round((new Date(order.updatedAt) - new Date(order.createdAt)) / 60000);
+      if (waitTime > 0 && waitTime < 300) { // Only count reasonable wait times (< 5 hours)
+        hourlyData[hour].totalWaitTime += waitTime;
+        hourlyData[hour].count++;
+        weeklyData[dayIndex].totalWaitTime += waitTime;
+        weeklyData[dayIndex].count++;
+      }
+    });
+
+    // Calculate average wait times
+    hourlyData.forEach(h => {
+      h.avgWaitTime = h.count > 0 ? Math.round(h.totalWaitTime / h.count) : 0;
+      delete h.totalWaitTime;
+      delete h.count;
+    });
+
+    weeklyData.forEach(d => {
+      d.avgWaitTime = d.count > 0 ? Math.round(d.totalWaitTime / d.count) : 0;
+      delete d.totalWaitTime;
+      delete d.count;
+      delete d.dayIndex;
+    });
+
+    // Find peak hour and day
+    const peakHour = hourlyData.reduce((max, h) => h.orders > max.orders ? h : max, hourlyData[0]);
+    const peakDay = weeklyData.reduce((max, d) => d.orders > max.orders ? d : max, weeklyData[0]);
+
+    res.json({
+      success: true,
+      hourly: hourlyData,
+      weekly: weeklyData,
+      peakHour,
+      peakDay
+    });
+  } catch (error) {
+    console.error('Peak hours error:', error);
+    res.status(500).json({ error: 'Failed to get peak hours data' });
+  }
+};
+
 module.exports = {
-  getDashboardStats
+  getDashboardStats,
+  getPeakHours
 };
